@@ -63,7 +63,7 @@ This document outlines the test-driven development tasks for implementing the Pr
   - Test file corruption handling
   - References: Requirements 3.9, 4.2
 
-- [ ] 3.3 Implement index caching with tests
+- [x] 3.3 Implement index caching with tests
   - Write tests for `SaveIndex` and `GetIndex` functions
   - Implement JSON index caching
   - Test atomic updates to prevent corruption
@@ -72,14 +72,14 @@ This document outlines the test-driven development tasks for implementing the Pr
 
 ## 4. GitHub API Integration
 
-- [ ] 4.1 Create GitHub client wrapper with tests
+- [x] 4.1 Create GitHub client wrapper with tests
   - Create `internal/gist/client_test.go` with mocked GitHub API tests
   - Implement `NewClient` function with authentication
   - Test token validation
   - Test API error handling
   - References: Requirements 1.2, 1.4, 1.7
 
-- [ ] 4.2 Implement Gist creation and update with tests
+- [x] 4.2 Implement Gist creation and update with tests
   - Write tests for `CreateGist` and `UpdateGist` using mocks
   - Implement functions to create/update Gists
   - Test setting Gist description from prompt metadata

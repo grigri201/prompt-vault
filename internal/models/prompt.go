@@ -75,3 +75,10 @@ type IndexEntry struct {
 	Description string    `json:"description"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
+
+// Index represents the complete index file with all prompt entries
+type Index struct {
+	Username  string       `json:"username"`
+	Entries   []IndexEntry `json:"entries"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}

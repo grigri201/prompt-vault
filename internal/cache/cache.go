@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -180,4 +181,77 @@ func (m *Manager) GetPrompt(gistID string) (*models.Prompt, error) {
 	prompt.GistID = gistID
 
 	return prompt, nil
+}
+
+// SaveIndex saves the index to the cache
+func (m *Manager) SaveIndex(index *models.Index) error {
+	if index == nil {
+		return fmt.Errorf("index is nil")
+	}
+	
+	if index.Username == "" {
+		return fmt.Errorf("index username is empty")
+	}
+
+	// Lock for writing
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Get index file path
+	indexPath := m.GetIndexPath()
+
+	// Marshal index to JSON with indentation
+	data, err := json.MarshalIndent(index, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal index: %w", err)
+	}
+
+	// Write to file atomically to prevent corruption
+	// First write to temp file
+	tempPath := indexPath + ".tmp"
+	if err := os.WriteFile(tempPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write temp index file: %w", err)
+	}
+
+	// Rename temp file to final path (atomic on most filesystems)
+	if err := os.Rename(tempPath, indexPath); err != nil {
+		// Clean up temp file on error
+		os.Remove(tempPath)
+		return fmt.Errorf("failed to save index file: %w", err)
+	}
+
+	return nil
+}
+
+// GetIndex retrieves the index from the cache
+func (m *Manager) GetIndex() (*models.Index, error) {
+	// Lock for reading
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Get index file path
+	indexPath := m.GetIndexPath()
+
+	// Read file content
+	data, err := os.ReadFile(indexPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Index doesn't exist yet, return nil
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to read index file: %w", err)
+	}
+
+	// Handle empty file
+	if len(data) == 0 {
+		return nil, fmt.Errorf("index file is empty")
+	}
+
+	// Unmarshal JSON
+	var index models.Index
+	if err := json.Unmarshal(data, &index); err != nil {
+		return nil, fmt.Errorf("failed to parse index file: %w", err)
+	}
+
+	return &index, nil
 }

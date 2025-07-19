@@ -464,3 +464,279 @@ Content`
 		t.Error("GetPrompt() should return error for corrupted file")
 	}
 }
+
+func TestManager_SaveIndex(t *testing.T) {
+	validIndex := &models.Index{
+		Username: "testuser",
+		Entries: []models.IndexEntry{
+			{
+				GistID:      "gist1",
+				Name:        "Prompt 1",
+				Author:      "testuser",
+				Category:    "testing",
+				Tags:        []string{"test"},
+				Description: "Test prompt 1",
+				UpdatedAt:   time.Now(),
+			},
+			{
+				GistID:      "gist2",
+				Name:        "Prompt 2",
+				Author:      "testuser",
+				Category:    "development",
+				Tags:        []string{"dev", "code"},
+				Description: "Test prompt 2",
+				UpdatedAt:   time.Now(),
+			},
+		},
+		UpdatedAt: time.Now(),
+	}
+
+	tests := []struct {
+		name    string
+		index   *models.Index
+		wantErr bool
+		setup   func(t *testing.T, m *Manager)
+	}{
+		{
+			name:    "saves valid index",
+			index:   validIndex,
+			wantErr: false,
+		},
+		{
+			name:    "rejects nil index",
+			index:   nil,
+			wantErr: true,
+		},
+		{
+			name: "rejects index with empty username",
+			index: &models.Index{
+				Username: "",
+				Entries:  []models.IndexEntry{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "handles file write failure",
+			index: &models.Index{
+				Username: "testuser",
+				Entries:  []models.IndexEntry{},
+			},
+			wantErr: true,
+			setup: func(t *testing.T, m *Manager) {
+				// Create a directory where the index file should be
+				indexFile := m.GetIndexPath()
+				if err := os.Mkdir(indexFile, 0755); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			cachePath := filepath.Join(tempDir, "cache", "prompts")
+			m := &Manager{cachePath: cachePath}
+			
+			if err := m.InitializeCache(); err != nil {
+				t.Fatal(err)
+			}
+			
+			if tt.setup != nil {
+				tt.setup(t, m)
+			}
+			
+			err := m.SaveIndex(tt.index)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SaveIndex() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			
+			if err == nil && tt.index != nil {
+				// Verify file was created
+				indexFile := m.GetIndexPath()
+				if _, err := os.Stat(indexFile); os.IsNotExist(err) {
+					t.Errorf("SaveIndex() did not create index file")
+				}
+			}
+		})
+	}
+}
+
+func TestManager_GetIndex(t *testing.T) {
+	validIndex := &models.Index{
+		Username: "testuser",
+		Entries: []models.IndexEntry{
+			{
+				GistID:      "gist1",
+				Name:        "Prompt 1",
+				Author:      "testuser",
+				Category:    "testing",
+				Tags:        []string{"test"},
+				Description: "Test prompt 1",
+				UpdatedAt:   time.Now().UTC().Truncate(time.Second),
+			},
+		},
+		UpdatedAt: time.Now().UTC().Truncate(time.Second),
+	}
+
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T, m *Manager)
+		want    *models.Index
+		wantErr bool
+	}{
+		{
+			name: "retrieves existing index",
+			setup: func(t *testing.T, m *Manager) {
+				if err := m.SaveIndex(validIndex); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want:    validIndex,
+			wantErr: false,
+		},
+		{
+			name:    "returns nil for non-existent index",
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name: "handles corrupted index file",
+			setup: func(t *testing.T, m *Manager) {
+				indexFile := m.GetIndexPath()
+				if err := os.WriteFile(indexFile, []byte("invalid json content"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "handles empty index file",
+			setup: func(t *testing.T, m *Manager) {
+				indexFile := m.GetIndexPath()
+				if err := os.WriteFile(indexFile, []byte(""), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			cachePath := filepath.Join(tempDir, "cache", "prompts")
+			m := &Manager{cachePath: cachePath}
+			
+			if err := m.InitializeCache(); err != nil {
+				t.Fatal(err)
+			}
+			
+			if tt.setup != nil {
+				tt.setup(t, m)
+			}
+			
+			got, err := m.GetIndex()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetIndex() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			
+			if !tt.wantErr && got != nil && tt.want != nil {
+				// Compare the indexes
+				if got.Username != tt.want.Username {
+					t.Errorf("GetIndex() Username = %v, want %v", got.Username, tt.want.Username)
+				}
+				if len(got.Entries) != len(tt.want.Entries) {
+					t.Errorf("GetIndex() Entries length = %v, want %v", len(got.Entries), len(tt.want.Entries))
+				}
+				// Compare timestamps with truncation for consistency
+				if !got.UpdatedAt.Truncate(time.Second).Equal(tt.want.UpdatedAt.Truncate(time.Second)) {
+					t.Errorf("GetIndex() UpdatedAt = %v, want %v", got.UpdatedAt, tt.want.UpdatedAt)
+				}
+			}
+		})
+	}
+}
+
+func TestManager_IndexAtomicUpdate(t *testing.T) {
+	tempDir := t.TempDir()
+	cachePath := filepath.Join(tempDir, "cache", "prompts")
+	m := &Manager{cachePath: cachePath}
+	
+	if err := m.InitializeCache(); err != nil {
+		t.Fatal(err)
+	}
+	
+	// Create initial index
+	initialIndex := &models.Index{
+		Username: "testuser",
+		Entries: []models.IndexEntry{
+			{
+				GistID:    "gist1",
+				Name:      "Initial",
+				Author:    "testuser",
+				Category:  "test",
+				UpdatedAt: time.Now(),
+			},
+		},
+		UpdatedAt: time.Now(),
+	}
+	
+	if err := m.SaveIndex(initialIndex); err != nil {
+		t.Fatal(err)
+	}
+	
+	// Simulate concurrent updates
+	done := make(chan bool)
+	errors := make(chan error, 10)
+	
+	for i := 0; i < 10; i++ {
+		go func(id int) {
+			index := &models.Index{
+				Username: "testuser",
+				Entries: []models.IndexEntry{
+					{
+						GistID:    "gist" + string(rune('0'+id)),
+						Name:      "Updated " + string(rune('0'+id)),
+						Author:    "testuser",
+						Category:  "test",
+						UpdatedAt: time.Now(),
+					},
+				},
+				UpdatedAt: time.Now(),
+			}
+			
+			err := m.SaveIndex(index)
+			if err != nil {
+				errors <- err
+			}
+			done <- true
+		}(i)
+	}
+	
+	// Wait for all updates
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+	
+	close(errors)
+	
+	// Check for errors
+	for err := range errors {
+		t.Errorf("Atomic update error: %v", err)
+	}
+	
+	// Verify final state is valid
+	finalIndex, err := m.GetIndex()
+	if err != nil {
+		t.Fatalf("Failed to get final index: %v", err)
+	}
+	
+	if finalIndex == nil {
+		t.Fatal("Final index is nil")
+	}
+	
+	if finalIndex.Username != "testuser" {
+		t.Errorf("Final index has incorrect username: %v", finalIndex.Username)
+	}
+}
