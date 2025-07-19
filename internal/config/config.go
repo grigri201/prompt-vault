@@ -145,3 +145,17 @@ func (m *Manager) UpdateLastSync() error {
 	config.LastSync = time.Now()
 	return m.SaveConfig(config)
 }
+
+// Save is a convenience method that saves the config to the specified path
+func (c *Config) Save(path string) error {
+	return c.SaveToFile(path)
+}
+
+// Load is a convenience function that loads a config from the specified path
+func Load(path string) (*Config, error) {
+	config := &Config{}
+	if err := config.LoadFromFile(path); err != nil {
+		return nil, err
+	}
+	return config, nil
+}

@@ -93,7 +93,7 @@ This document outlines the test-driven development tasks for implementing the Pr
   - Test network retry logic
   - References: Requirements 5.7, 6.8, 7.4
 
-- [ ] 4.4 Implement index Gist management with tests
+- [x] 4.4 Implement index Gist management with tests
   - Write tests for index Gist operations
   - Implement `UpdateIndexGist` function
   - Test JSON marshaling of index entries
