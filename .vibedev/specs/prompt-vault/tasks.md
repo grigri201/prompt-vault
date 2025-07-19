@@ -4,7 +4,7 @@ This document outlines the test-driven development tasks for implementing the Pr
 
 ## 1. Project Setup and Core Data Models
 
-- [ ] 1.1 Initialize Go module and project structure
+- [x] 1.1 Initialize Go module and project structure
   - Prompt user to run: `go mod init github.com/[username]/prompt-vault`
   - Create directory structure as defined in design document
   - Prompt user to add dependencies using `go get` commands as needed
