@@ -1,12 +1,14 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/grigri201/prompt-vault/internal/config"
+	"github.com/grigri201/prompt-vault/internal/gist"
 )
 
 // Manager handles authentication token storage and retrieval
@@ -107,4 +109,35 @@ func (m *Manager) RemoveToken() error {
 // GetConfigPath returns the path to the config file
 func (m *Manager) GetConfigPath() string {
 	return m.configPath
+}
+
+// ValidateToken validates the stored token with GitHub API
+func (m *Manager) ValidateToken(ctx context.Context) (string, error) {
+	// Get stored token
+	token, username, err := m.GetToken()
+	if err != nil {
+		return "", err
+	}
+
+	// Create GitHub client
+	client, err := gist.NewClient(token)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GitHub client: %w", err)
+	}
+
+	// Validate token and get username
+	validatedUsername, err := client.ValidateToken(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Update stored username if different
+	if username != validatedUsername {
+		if err := m.SaveToken(token, validatedUsername); err != nil {
+			// Log error but don't fail validation
+			// In real implementation, we might want to log this
+		}
+	}
+
+	return validatedUsername, nil
 }

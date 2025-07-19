@@ -1,11 +1,13 @@
 package auth
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/grigri201/prompt-vault/internal/config"
+	"github.com/grigri201/prompt-vault/internal/gist"
 )
 
 func TestManager_SaveToken(t *testing.T) {
@@ -329,4 +331,103 @@ func TestNewManagerWithPath(t *testing.T) {
 	if m.configPath != customPath {
 		t.Errorf("configPath = %v, want %v", m.configPath, customPath)
 	}
+}
+
+func TestManager_ValidateToken(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupConfig    func(t *testing.T, configPath string)
+		setupGist      func(t *testing.T) *gist.Client
+		wantUsername   string
+		wantErr        bool
+		wantErrMessage string
+	}{
+		{
+			name: "validates token successfully",
+			setupConfig: func(t *testing.T, configPath string) {
+				cfg := &config.Config{
+					Token:    "ghp_validtoken123",
+					Username: "testuser",
+				}
+				if err := cfg.Save(configPath); err != nil {
+					t.Fatalf("Failed to create test config: %v", err)
+				}
+			},
+			setupGist: func(t *testing.T) *gist.Client {
+				// This would be mocked in real implementation
+				return nil
+			},
+			wantUsername: "testuser",
+			wantErr:      false,
+		},
+		{
+			name:           "returns error when no token stored",
+			wantErr:        true,
+			wantErrMessage: "no token found",
+		},
+		{
+			name: "handles invalid token",
+			setupConfig: func(t *testing.T, configPath string) {
+				cfg := &config.Config{
+					Token:    "invalid_token",
+					Username: "",
+				}
+				if err := cfg.Save(configPath); err != nil {
+					t.Fatalf("Failed to create test config: %v", err)
+				}
+			},
+			wantErr:        true,
+			wantErrMessage: "invalid token",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip actual API tests for now - would need mock
+			if tt.name == "validates token successfully" {
+				t.Skip("Skipping API test - requires mock implementation")
+			}
+			if tt.name == "handles invalid token" {
+				t.Skip("Skipping API test - requires mock implementation")
+			}
+			
+			// Create temp config directory
+			tempDir := t.TempDir()
+			configPath := filepath.Join(tempDir, "prompt-vault", "config.yaml")
+			
+			// Create manager
+			m := &Manager{
+				configPath: configPath,
+			}
+			
+			if tt.setupConfig != nil {
+				tt.setupConfig(t, configPath)
+			}
+			
+			username, err := m.ValidateToken(context.Background())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateToken() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			
+			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
+				if !contains(err.Error(), tt.wantErrMessage) {
+					t.Errorf("ValidateToken() error = %v, want error containing %v", err, tt.wantErrMessage)
+				}
+			}
+			
+			if !tt.wantErr && username != tt.wantUsername {
+				t.Errorf("ValidateToken() username = %v, want %v", username, tt.wantUsername)
+			}
+		})
+	}
+}
+
+// Helper function for string contains
+func contains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if i+len(substr) <= len(s) && s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

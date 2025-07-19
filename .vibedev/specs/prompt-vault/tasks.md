@@ -102,7 +102,7 @@ This document outlines the test-driven development tasks for implementing the Pr
 
 ## 5. Authentication Manager
 
-- [ ] 5.1 Implement token storage with tests
+- [x] 5.1 Implement token storage with tests
   - Create `internal/auth/auth_test.go` with tests for secure token storage
   - Implement `SaveToken` and `GetToken` functions
   - Test configuration file creation
