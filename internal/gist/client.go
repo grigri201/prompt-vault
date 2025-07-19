@@ -2,12 +2,14 @@ package gist
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/google/go-github/v73/github"
+	"github.com/grigri201/prompt-vault/internal/models"
 )
 
 // Client wraps the GitHub API client for Gist operations
@@ -228,4 +230,90 @@ func (c *Client) DeleteGist(ctx context.Context, gistID string) error {
 	}
 
 	return nil
+}
+
+// UpdateIndexGist updates or creates the index Gist for a user
+func (c *Client) UpdateIndexGist(ctx context.Context, username string, index *models.Index) (string, error) {
+	// Validate inputs
+	if username == "" {
+		return "", errors.New("username is required")
+	}
+	if index == nil {
+		return "", errors.New("index is required")
+	}
+
+	// Set the username in the index
+	index.Username = username
+
+	// Marshal index to JSON
+	indexJSON, err := json.MarshalIndent(index, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal index: %w", err)
+	}
+
+	// Gist filename for index
+	indexFilename := fmt.Sprintf("%s-promptvault-index.json", username)
+
+	// Try to find existing index gist
+	gists, _, err := c.github.Gists.List(ctx, "", &github.GistListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to list gists: %w", err)
+	}
+
+	// Look for existing index gist
+	var existingGistID string
+	for _, gist := range gists {
+		if gist.Description != nil && *gist.Description == "Prompt Vault Index" {
+			// Check if it has the index file
+			for filename := range gist.Files {
+				if string(filename) == indexFilename {
+					existingGistID = *gist.ID
+					break
+				}
+			}
+			if existingGistID != "" {
+				break
+			}
+		}
+	}
+
+	if existingGistID != "" {
+		// Update existing gist
+		gistUpdate := &github.Gist{
+			Files: map[github.GistFilename]github.GistFile{
+				github.GistFilename(indexFilename): {
+					Content: github.String(string(indexJSON)),
+				},
+			},
+		}
+
+		_, _, err = c.github.Gists.Edit(ctx, existingGistID, gistUpdate)
+		if err != nil {
+			return "", fmt.Errorf("failed to update index gist: %w", err)
+		}
+
+		return existingGistID, nil
+	}
+
+	// Create new index gist
+	newGist := &github.Gist{
+		Description: github.String("Prompt Vault Index"),
+		Public:      github.Bool(false),
+		Files: map[github.GistFilename]github.GistFile{
+			github.GistFilename(indexFilename): {
+				Content: github.String(string(indexJSON)),
+			},
+		},
+	}
+
+	createdGist, _, err := c.github.Gists.Create(ctx, newGist)
+	if err != nil {
+		return "", fmt.Errorf("failed to create index gist: %w", err)
+	}
+
+	if createdGist.ID == nil {
+		return "", errors.New("unexpected response from GitHub API")
+	}
+
+	return *createdGist.ID, nil
 }

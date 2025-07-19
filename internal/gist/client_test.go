@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/go-github/v73/github"
+	"github.com/grigri201/prompt-vault/internal/models"
 )
 
 func TestNewClient(t *testing.T) {
@@ -765,6 +767,241 @@ func TestClient_DeleteGist(t *testing.T) {
 				if !contains(err.Error(), tt.wantErrMessage) {
 					t.Errorf("DeleteGist() error = %v, want error containing %v", err, tt.wantErrMessage)
 				}
+			}
+		})
+	}
+}
+
+func TestClient_UpdateIndexGist(t *testing.T) {
+	tests := []struct {
+		name           string
+		username       string
+		index          *models.Index
+		existingGistID string
+		setupServer    func(t *testing.T) *httptest.Server
+		wantGistID     string
+		wantErr        bool
+		wantErrMessage string
+	}{
+		{
+			name:     "creates new index gist when none exists",
+			username: "testuser",
+			index: &models.Index{
+				Username: "testuser",
+				Entries: []models.IndexEntry{
+					{
+						GistID:      "gist1",
+						Name:        "Test Prompt",
+						Author:      "testuser",
+						Category:    "testing",
+						Tags:        []string{"test"},
+						Description: "Test description",
+						UpdatedAt:   time.Now(),
+					},
+				},
+				UpdatedAt: time.Now(),
+			},
+			setupServer: func(t *testing.T) *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					switch r.URL.Path {
+					case "/gists":
+						// List gists to find index
+						if r.Method == "GET" {
+							w.WriteHeader(http.StatusOK)
+							w.Write([]byte(`[]`)) // No existing gists
+						} else if r.Method == "POST" {
+							// Create new index gist
+							var reqBody map[string]interface{}
+							if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+								t.Errorf("Failed to decode request body: %v", err)
+							}
+							
+							// Verify gist properties
+							if desc, ok := reqBody["description"].(string); !ok || desc != "Prompt Vault Index" {
+								t.Errorf("Unexpected description: %v", desc)
+							}
+							
+							files, ok := reqBody["files"].(map[string]interface{})
+							if !ok {
+								t.Error("Missing files in request")
+							}
+							
+							file, ok := files["testuser-promptvault-index.json"].(map[string]interface{})
+							if !ok {
+								t.Error("Missing index file in request")
+							}
+							
+							// Verify JSON content
+							content, ok := file["content"].(string)
+							if !ok {
+								t.Error("Missing content in file")
+							}
+							
+							var parsedIndex models.Index
+							if err := json.Unmarshal([]byte(content), &parsedIndex); err != nil {
+								t.Errorf("Invalid JSON content: %v", err)
+							}
+							
+							if parsedIndex.Username != "testuser" {
+								t.Errorf("Unexpected username in index: %v", parsedIndex.Username)
+							}
+							
+							w.WriteHeader(http.StatusCreated)
+							w.Write([]byte(`{
+								"id": "newindex123",
+								"html_url": "https://gist.github.com/testuser/newindex123"
+							}`))
+						}
+					default:
+						t.Errorf("Unexpected path: %s", r.URL.Path)
+					}
+				}))
+			},
+			wantGistID: "newindex123",
+			wantErr:    false,
+		},
+		{
+			name:           "updates existing index gist",
+			username:       "testuser",
+			existingGistID: "existingindex456",
+			index: &models.Index{
+				Username: "testuser",
+				Entries: []models.IndexEntry{
+					{
+						GistID:    "gist1",
+						Name:      "Updated Prompt",
+						Author:    "testuser",
+						Category:  "testing",
+						Tags:      []string{"test", "updated"},
+						UpdatedAt: time.Now(),
+					},
+				},
+				UpdatedAt: time.Now(),
+			},
+			setupServer: func(t *testing.T) *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					switch r.URL.Path {
+					case "/gists":
+						// List gists to find index
+						w.WriteHeader(http.StatusOK)
+						w.Write([]byte(`[{
+							"id": "existingindex456",
+							"description": "Prompt Vault Index",
+							"files": {
+								"testuser-promptvault-index.json": {
+									"filename": "testuser-promptvault-index.json"
+								}
+							}
+						}]`))
+					case "/gists/existingindex456":
+						if r.Method == "PATCH" {
+							// Update existing index
+							var reqBody map[string]interface{}
+							if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+								t.Errorf("Failed to decode request body: %v", err)
+							}
+							
+							files, ok := reqBody["files"].(map[string]interface{})
+							if !ok {
+								t.Error("Missing files in request")
+							}
+							
+							file, ok := files["testuser-promptvault-index.json"].(map[string]interface{})
+							if !ok {
+								t.Error("Missing index file in request")
+							}
+							
+							// Verify JSON content
+							content, ok := file["content"].(string)
+							if !ok {
+								t.Error("Missing content in file")
+							}
+							
+							var parsedIndex models.Index
+							if err := json.Unmarshal([]byte(content), &parsedIndex); err != nil {
+								t.Errorf("Invalid JSON content: %v", err)
+							}
+							
+							w.WriteHeader(http.StatusOK)
+							w.Write([]byte(`{
+								"id": "existingindex456",
+								"html_url": "https://gist.github.com/testuser/existingindex456"
+							}`))
+						}
+					default:
+						t.Errorf("Unexpected path: %s", r.URL.Path)
+					}
+				}))
+			},
+			wantGistID: "existingindex456",
+			wantErr:    false,
+		},
+		{
+			name:     "handles empty username",
+			username: "",
+			index: &models.Index{
+				Username: "",
+				Entries:  []models.IndexEntry{},
+			},
+			wantErr:        true,
+			wantErrMessage: "username is required",
+		},
+		{
+			name:     "handles nil index",
+			username: "testuser",
+			index:    nil,
+			wantErr:  true,
+			wantErrMessage: "index is required",
+		},
+		{
+			name:     "handles API error",
+			username: "testuser",
+			index: &models.Index{
+				Username:  "testuser",
+				Entries:   []models.IndexEntry{},
+				UpdatedAt: time.Now(),
+			},
+			setupServer: func(t *testing.T) *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte(`{"message": "Internal Server Error"}`))
+				}))
+			},
+			wantErr:        true,
+			wantErrMessage: "failed to",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var server *httptest.Server
+			if tt.setupServer != nil {
+				server = tt.setupServer(t)
+				defer server.Close()
+			}
+
+			client := &Client{
+				github: github.NewClient(nil).WithAuthToken("test-token"),
+			}
+			
+			if server != nil {
+				client.github.BaseURL, _ = client.github.BaseURL.Parse(server.URL + "/")
+			}
+
+			gistID, err := client.UpdateIndexGist(context.Background(), tt.username, tt.index)
+			
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdateIndexGist() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			
+			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
+				if !contains(err.Error(), tt.wantErrMessage) {
+					t.Errorf("UpdateIndexGist() error = %v, want error containing %v", err, tt.wantErrMessage)
+				}
+			}
+			
+			if !tt.wantErr && gistID != tt.wantGistID {
+				t.Errorf("UpdateIndexGist() gistID = %v, want %v", gistID, tt.wantGistID)
 			}
 		})
 	}
