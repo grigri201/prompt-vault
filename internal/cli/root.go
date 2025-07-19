@@ -45,21 +45,6 @@ func Execute() error {
 
 // Placeholder commands - will be implemented in subsequent tasks
 
-func newListCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "list",
-		Aliases: []string{"ls"},
-		Short:   "List all available prompt templates",
-		Long: `List all available prompt templates from your GitHub Gists.
-Templates are displayed in a paginated table showing name, author, 
-category, and version.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Println("List command not yet implemented")
-			return nil
-		},
-	}
-}
-
 func newGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get [keyword]",

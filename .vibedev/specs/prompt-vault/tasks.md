@@ -139,7 +139,7 @@ This document outlines the test-driven development tasks for implementing the Pr
   - Test secure input handling
   - References: Requirements 1.1-1.3, 1.8
 
-- [ ] 6.3 Implement upload command with tests
+- [x] 6.3 Implement upload command with tests
   - Create `internal/cli/upload_test.go` with file parsing tests
   - Implement `pv upload [file]` command
   - Test file validation and error messages
