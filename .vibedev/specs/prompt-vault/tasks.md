@@ -10,14 +10,14 @@ This document outlines the test-driven development tasks for implementing the Pr
   - Prompt user to add dependencies using `go get` commands as needed
   - References: Design - Architecture section
 
-- [ ] 1.2 Implement Prompt data models with tests
+- [x] 1.2 Implement Prompt data models with tests
   - Create `internal/models/prompt_test.go` with tests for PromptMeta validation
   - Create `internal/models/prompt.go` with PromptMeta, Prompt, and IndexEntry structs
   - Test required fields validation (name, author, category, tags)
   - Test optional fields handling (version, description)
   - References: Requirements 8.2-8.4, Design - Data Models
 
-- [ ] 1.3 Implement configuration model with tests
+- [x] 1.3 Implement configuration model with tests
   - Create `internal/config/config_test.go` with tests for Config struct
   - Create `internal/config/config.go` with Config struct and validation
   - Test configuration file loading and saving
@@ -26,14 +26,14 @@ This document outlines the test-driven development tasks for implementing the Pr
 
 ## 2. YAML Parser Implementation
 
-- [ ] 2.1 Implement YAML front matter parsing with tests
+- [x] 2.1 Implement YAML front matter parsing with tests
   - Create `internal/parser/parser_test.go` with test cases for valid/invalid YAML
   - Implement `ParseYAMLFrontMatter` function in `internal/parser/parser.go`
   - Test parsing of all required and optional fields
   - Test error handling for malformed YAML
   - References: Requirements 2.2-2.3, 8.1-8.4
 
-- [ ] 2.2 Implement variable extraction with tests
+- [x] 2.2 Implement variable extraction with tests
   - Write tests for `ExtractVariables` function with various patterns
   - Implement `ExtractVariables` to find all `{variable}` patterns
   - Test handling of duplicate variables
