@@ -44,26 +44,6 @@ func Execute() error {
 }
 
 // Placeholder commands - will be implemented in subsequent tasks
-func newLoginCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "login",
-		Short: "Authenticate with GitHub using a Personal Access Token",
-		Long: `Authenticate with GitHub using a Personal Access Token (PAT).
-The token will be stored securely in your configuration file.
-
-To create a Personal Access Token:
-1. Go to https://github.com/settings/tokens
-2. Click "Generate new token" (classic)
-3. Give it a descriptive name
-4. Select the "gist" scope
-5. Click "Generate token"
-6. Copy the token and use it with this command`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Println("Login command not yet implemented")
-			return nil
-		},
-	}
-}
 
 func newUploadCmd() *cobra.Command {
 	return &cobra.Command{
