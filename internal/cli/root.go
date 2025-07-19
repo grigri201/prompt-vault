@@ -45,21 +45,6 @@ func Execute() error {
 
 // Placeholder commands - will be implemented in subsequent tasks
 
-func newGetCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "get [keyword]",
-		Short: "Search and retrieve prompt templates",
-		Long: `Search for prompt templates by keyword across names, categories, 
-tags, authors, and descriptions. Select a template to fill in variables 
-interactively and copy the result to your clipboard.`,
-		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Println("Get command not yet implemented")
-			return nil
-		},
-	}
-}
-
 func newDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "delete <name>",
