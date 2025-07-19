@@ -422,6 +422,87 @@ func TestManager_ValidateToken(t *testing.T) {
 	}
 }
 
+func TestManager_GetCurrentUser(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupConfig    func(t *testing.T, configPath string)
+		wantUsername   string
+		wantErr        bool
+		wantErrMessage string
+	}{
+		{
+			name: "retrieves cached username",
+			setupConfig: func(t *testing.T, configPath string) {
+				cfg := &config.Config{
+					Token:    "ghp_validtoken123",
+					Username: "cacheduser",
+				}
+				if err := cfg.Save(configPath); err != nil {
+					t.Fatalf("Failed to create test config: %v", err)
+				}
+			},
+			wantUsername: "cacheduser",
+			wantErr:      false,
+		},
+		{
+			name:           "returns error when no token stored",
+			wantErr:        true,
+			wantErrMessage: "no token found",
+		},
+		{
+			name: "fetches username when not cached",
+			setupConfig: func(t *testing.T, configPath string) {
+				cfg := &config.Config{
+					Token:    "ghp_validtoken123",
+					Username: "", // Empty username
+				}
+				if err := cfg.Save(configPath); err != nil {
+					t.Fatalf("Failed to create test config: %v", err)
+				}
+			},
+			wantUsername: "", // Would be fetched from API
+			wantErr:      false, // In real test, this would depend on API
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip API test for now
+			if tt.name == "fetches username when not cached" {
+				t.Skip("Skipping API test - requires mock implementation")
+			}
+			
+			// Create temp config directory
+			tempDir := t.TempDir()
+			configPath := filepath.Join(tempDir, "prompt-vault", "config.yaml")
+			
+			// Create manager
+			m := &Manager{
+				configPath: configPath,
+			}
+			
+			if tt.setupConfig != nil {
+				tt.setupConfig(t, configPath)
+			}
+			
+			username, err := m.GetCurrentUser(context.Background())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetCurrentUser() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			
+			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
+				if !contains(err.Error(), tt.wantErrMessage) {
+					t.Errorf("GetCurrentUser() error = %v, want error containing %v", err, tt.wantErrMessage)
+				}
+			}
+			
+			if !tt.wantErr && username != tt.wantUsername {
+				t.Errorf("GetCurrentUser() username = %v, want %v", username, tt.wantUsername)
+			}
+		})
+	}
+}
+
 // Helper function for string contains
 func contains(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {

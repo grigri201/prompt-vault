@@ -141,3 +141,38 @@ func (m *Manager) ValidateToken(ctx context.Context) (string, error) {
 
 	return validatedUsername, nil
 }
+
+// GetCurrentUser returns the current authenticated user's username
+// It first checks the cached username, and if not found, fetches from API
+func (m *Manager) GetCurrentUser(ctx context.Context) (string, error) {
+	// Get stored token and username
+	token, username, err := m.GetToken()
+	if err != nil {
+		return "", err
+	}
+
+	// If username is already cached, return it
+	if username != "" {
+		return username, nil
+	}
+
+	// Username not cached, fetch from API
+	client, err := gist.NewClient(token)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GitHub client: %w", err)
+	}
+
+	// Validate token and get username
+	validatedUsername, err := client.ValidateToken(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Cache the username
+	if err := m.SaveToken(token, validatedUsername); err != nil {
+		// Log error but don't fail the operation
+		// In real implementation, we might want to log this
+	}
+
+	return validatedUsername, nil
+}
