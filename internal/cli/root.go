@@ -1,0 +1,139 @@
+package cli
+
+import (
+	"github.com/spf13/cobra"
+)
+
+var (
+	// Version is set during build
+	Version = "dev"
+)
+
+// NewRootCmd creates the root command
+func NewRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "pv",
+		Short: "Prompt Vault - manage and reuse prompt templates",
+		Long: `Prompt Vault is a command-line tool that enables you to manage, 
+store, and reuse prompt templates through GitHub Gists.
+
+Store your prompt templates privately in GitHub Gists, search and retrieve 
+templates, fill in variables interactively, and copy the final prompt to 
+your clipboard.`,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Version:       Version,
+	}
+
+	// Add subcommands
+	rootCmd.AddCommand(
+		newLoginCmd(),
+		newUploadCmd(),
+		newListCmd(),
+		newGetCmd(),
+		newDeleteCmd(),
+		newSyncCmd(),
+	)
+
+	return rootCmd
+}
+
+// Execute runs the root command
+func Execute() error {
+	return NewRootCmd().Execute()
+}
+
+// Placeholder commands - will be implemented in subsequent tasks
+func newLoginCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "login",
+		Short: "Authenticate with GitHub using a Personal Access Token",
+		Long: `Authenticate with GitHub using a Personal Access Token (PAT).
+The token will be stored securely in your configuration file.
+
+To create a Personal Access Token:
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token" (classic)
+3. Give it a descriptive name
+4. Select the "gist" scope
+5. Click "Generate token"
+6. Copy the token and use it with this command`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Println("Login command not yet implemented")
+			return nil
+		},
+	}
+}
+
+func newUploadCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "upload [file]",
+		Aliases: []string{"up"},
+		Short:   "Upload a prompt template to GitHub Gist",
+		Long: `Upload a prompt template file to GitHub Gist.
+The file should be in YAML format with front matter containing metadata.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Println("Upload command not yet implemented")
+			return nil
+		},
+	}
+}
+
+func newListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all available prompt templates",
+		Long: `List all available prompt templates from your GitHub Gists.
+Templates are displayed in a paginated table showing name, author, 
+category, and version.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Println("List command not yet implemented")
+			return nil
+		},
+	}
+}
+
+func newGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get [keyword]",
+		Short: "Search and retrieve prompt templates",
+		Long: `Search for prompt templates by keyword across names, categories, 
+tags, authors, and descriptions. Select a template to fill in variables 
+interactively and copy the result to your clipboard.`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Println("Get command not yet implemented")
+			return nil
+		},
+	}
+}
+
+func newDeleteCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "delete <name>",
+		Aliases: []string{"del"},
+		Short:   "Delete a prompt template",
+		Long: `Delete a prompt template from your GitHub Gists.
+This action requires confirmation and can only be performed on your own templates.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Println("Delete command not yet implemented")
+			return nil
+		},
+	}
+}
+
+func newSyncCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "sync",
+		Short: "Synchronize local cache with GitHub Gists",
+		Long: `Synchronize your local prompt cache with GitHub Gists.
+This downloads all prompts from your index and updates the local cache.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Println("Sync command not yet implemented")
+			return nil
+		},
+	}
+}
