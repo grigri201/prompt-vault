@@ -49,14 +49,14 @@ This document outlines the test-driven development tasks for implementing the Pr
 
 ## 3. Cache Manager Implementation
 
-- [ ] 3.1 Implement cache directory management with tests
+- [x] 3.1 Implement cache directory management with tests
   - Create `internal/cache/cache_test.go` with tests for directory creation
   - Implement cache directory initialization in `internal/cache/cache.go`
   - Test directory creation at `~/.cache/prompt-vault/prompts/`
   - Test permission handling and error cases
   - References: Requirements 3.6, 3.9, Design - Cache Structure
 
-- [ ] 3.2 Implement prompt caching with tests
+- [x] 3.2 Implement prompt caching with tests
   - Write tests for `SavePrompt` and `GetPrompt` functions
   - Implement YAML file read/write for prompt caching
   - Test concurrent access safety
