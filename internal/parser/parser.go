@@ -164,3 +164,22 @@ func isValidVariableName(name string) bool {
 	
 	return true
 }
+
+// FillVariables replaces all variable placeholders in the content with their corresponding values
+// Variables not found in the values map are left unchanged
+// Returns a new string with replacements made
+func FillVariables(content string, values map[string]string) string {
+	if values == nil {
+		return content
+	}
+	
+	result := content
+	
+	// Replace each variable with its value
+	for varName, value := range values {
+		placeholder := "{" + varName + "}"
+		result = strings.ReplaceAll(result, placeholder, value)
+	}
+	
+	return result
+}

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/grigri201/prompt-vault/internal/models"
@@ -384,5 +385,177 @@ func TestExtractVariables_OrderPreservation(t *testing.T) {
 	
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("ExtractVariables() = %v, want %v (order matters)", result, expected)
+	}
+}
+
+func TestFillVariables(t *testing.T) {
+	tests := []struct {
+		name      string
+		content   string
+		values    map[string]string
+		expected  string
+	}{
+		{
+			name:    "single variable replacement",
+			content: "Hello {name}!",
+			values: map[string]string{
+				"name": "John",
+			},
+			expected: "Hello John!",
+		},
+		{
+			name:    "multiple variable replacement",
+			content: "Generate {format} documentation for {endpoint} API",
+			values: map[string]string{
+				"format":   "OpenAPI",
+				"endpoint": "/users",
+			},
+			expected: "Generate OpenAPI documentation for /users API",
+		},
+		{
+			name:    "duplicate variable replacement",
+			content: "{name} is a developer. {name} writes code.",
+			values: map[string]string{
+				"name": "Alice",
+			},
+			expected: "Alice is a developer. Alice writes code.",
+		},
+		{
+			name:     "no variables",
+			content:  "This is plain text without variables.",
+			values:   map[string]string{},
+			expected: "This is plain text without variables.",
+		},
+		{
+			name:    "missing value for variable",
+			content: "Hello {name}! Welcome to {place}.",
+			values: map[string]string{
+				"name": "Bob",
+			},
+			expected: "Hello Bob! Welcome to {place}.",
+		},
+		{
+			name:    "extra values not in template",
+			content: "Hello {name}!",
+			values: map[string]string{
+				"name":  "Charlie",
+				"extra": "unused",
+			},
+			expected: "Hello Charlie!",
+		},
+		{
+			name:    "empty value replacement",
+			content: "Start{value}End",
+			values: map[string]string{
+				"value": "",
+			},
+			expected: "StartEnd",
+		},
+		{
+			name:    "special characters in value",
+			content: "Command: {cmd}",
+			values: map[string]string{
+				"cmd": "echo 'Hello $USER'",
+			},
+			expected: "Command: echo 'Hello $USER'",
+		},
+		{
+			name:    "multiline content",
+			content: "Line 1: {var1}\nLine 2: {var2}\n\nLine 4: {var1}",
+			values: map[string]string{
+				"var1": "first",
+				"var2": "second",
+			},
+			expected: "Line 1: first\nLine 2: second\n\nLine 4: first",
+		},
+		{
+			name:    "adjacent variables",
+			content: "{greeting}{punctuation} {name}!",
+			values: map[string]string{
+				"greeting":    "Hello",
+				"punctuation": ",",
+				"name":        "World",
+			},
+			expected: "Hello, World!",
+		},
+		{
+			name:    "nested-like patterns",
+			content: "This {{nested}} and {valid} text",
+			values: map[string]string{
+				"valid": "replaced",
+			},
+			expected: "This {{nested}} and replaced text",
+		},
+		{
+			name:    "variables with underscores and hyphens",
+			content: "User: {user_name}, API Key: {api-key}",
+			values: map[string]string{
+				"user_name": "john_doe",
+				"api-key":   "sk-12345",
+			},
+			expected: "User: john_doe, API Key: sk-12345",
+		},
+		{
+			name:    "value with braces",
+			content: "Code: {snippet}",
+			values: map[string]string{
+				"snippet": "if (x > 0) { return x; }",
+			},
+			expected: "Code: if (x > 0) { return x; }",
+		},
+		{
+			name:     "nil values map",
+			content:  "Hello {name}!",
+			values:   nil,
+			expected: "Hello {name}!",
+		},
+		{
+			name:    "case sensitive variables",
+			content: "{name} != {Name} != {NAME}",
+			values: map[string]string{
+				"name": "lower",
+				"Name": "title",
+				"NAME": "upper",
+			},
+			expected: "lower != title != upper",
+		},
+		{
+			name:    "unicode in values",
+			content: "Hello {name}! {emoji}",
+			values: map[string]string{
+				"name":  "世界",
+				"emoji": "🎉",
+			},
+			expected: "Hello 世界! 🎉",
+		},
+		{
+			name:    "very long value",
+			content: "Summary: {text}",
+			values: map[string]string{
+				"text": strings.Repeat("Long text. ", 100),
+			},
+			expected: "Summary: " + strings.Repeat("Long text. ", 100),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FillVariables(tt.content, tt.values)
+			if result != tt.expected {
+				t.Errorf("FillVariables() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFillVariables_PreservesOriginal(t *testing.T) {
+	// Test that the original content string is not modified
+	original := "Hello {name}!"
+	values := map[string]string{"name": "World"}
+	
+	_ = FillVariables(original, values)
+	
+	if original != "Hello {name}!" {
+		t.Error("FillVariables modified the original string")
 	}
 }
