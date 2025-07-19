@@ -45,21 +45,6 @@ func Execute() error {
 
 // Placeholder commands - will be implemented in subsequent tasks
 
-func newUploadCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "upload [file]",
-		Aliases: []string{"up"},
-		Short:   "Upload a prompt template to GitHub Gist",
-		Long: `Upload a prompt template file to GitHub Gist.
-The file should be in YAML format with front matter containing metadata.`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Println("Upload command not yet implemented")
-			return nil
-		},
-	}
-}
-
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "list",

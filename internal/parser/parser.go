@@ -183,3 +183,32 @@ func FillVariables(content string, values map[string]string) string {
 	
 	return result
 }
+
+// FormatPromptFile formats a prompt into YAML front matter format
+func FormatPromptFile(meta *models.PromptMeta, content string) string {
+	// Create metadata map
+	metaMap := map[string]interface{}{
+		"name":     meta.Name,
+		"author":   meta.Author,
+		"category": meta.Category,
+		"tags":     meta.Tags,
+	}
+	
+	// Add optional fields
+	if meta.Version != "" {
+		metaMap["version"] = meta.Version
+	}
+	if meta.Description != "" {
+		metaMap["description"] = meta.Description
+	}
+	
+	// Marshal to YAML
+	metaYAML, err := yaml.Marshal(metaMap)
+	if err != nil {
+		// Fallback to simple format
+		return fmt.Sprintf("---\nname: %s\nauthor: %s\ncategory: %s\ntags: %v\n---\n%s", 
+			meta.Name, meta.Author, meta.Category, meta.Tags, content)
+	}
+	
+	return fmt.Sprintf("---\n%s---\n%s", string(metaYAML), content)
+}

@@ -125,14 +125,14 @@ This document outlines the test-driven development tasks for implementing the Pr
 
 ## 6. CLI Command Implementation
 
-- [ ] 6.1 Set up Cobra CLI framework with tests
+- [x] 6.1 Set up Cobra CLI framework with tests
   - Create `cmd/pv/main.go` with root command
   - Write tests for command initialization
   - Set up command structure
   - Test help text generation
   - References: Design - Technology Stack
 
-- [ ] 6.2 Implement login command with tests
+- [x] 6.2 Implement login command with tests
   - Create `internal/cli/login_test.go` with command tests
   - Implement `pv login` command in `internal/cli/login.go`
   - Test GitHub token instructions display
