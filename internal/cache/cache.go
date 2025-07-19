@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/grigri201/prompt-vault/internal/models"
@@ -254,4 +256,45 @@ func (m *Manager) GetIndex() (*models.Index, error) {
 	}
 
 	return &index, nil
+}
+
+// generateSafeFilename creates a safe filename from a prompt name
+func generateSafeFilename(name string) string {
+	// Replace spaces with hyphens
+	name = strings.ReplaceAll(name, " ", "-")
+	
+	// Remove or replace unsafe characters
+	re := regexp.MustCompile(`[^a-zA-Z0-9\-_]`)
+	name = re.ReplaceAllString(name, "")
+	
+	// Convert to lowercase
+	name = strings.ToLower(name)
+	
+	// Limit length
+	if len(name) > 100 {
+		name = name[:100]
+	}
+	
+	return name
+}
+
+// DeletePrompt removes a prompt from the cache
+func (m *Manager) DeletePrompt(name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Generate safe filename
+	safeFilename := generateSafeFilename(name)
+	promptPath := filepath.Join(m.cachePath, safeFilename+".yaml")
+
+	// Remove the file
+	if err := os.Remove(promptPath); err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist, not an error
+			return nil
+		}
+		return err
+	}
+
+	return nil
 }

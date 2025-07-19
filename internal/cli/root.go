@@ -45,21 +45,6 @@ func Execute() error {
 
 // Placeholder commands - will be implemented in subsequent tasks
 
-func newDeleteCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "delete <name>",
-		Aliases: []string{"del"},
-		Short:   "Delete a prompt template",
-		Long: `Delete a prompt template from your GitHub Gists.
-This action requires confirmation and can only be performed on your own templates.`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Println("Delete command not yet implemented")
-			return nil
-		},
-	}
-}
-
 func newSyncCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
