@@ -44,16 +44,3 @@ func Execute() error {
 }
 
 // Placeholder commands - will be implemented in subsequent tasks
-
-func newSyncCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "sync",
-		Short: "Synchronize local cache with GitHub Gists",
-		Long: `Synchronize your local prompt cache with GitHub Gists.
-This downloads all prompts from your index and updates the local cache.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Println("Sync command not yet implemented")
-			return nil
-		},
-	}
-}
