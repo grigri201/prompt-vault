@@ -33,6 +33,7 @@ your clipboard.`,
 		newGetCmd(),
 		newDeleteCmd(),
 		newSyncCmd(),
+		newConfigCmd(),
 	)
 
 	return rootCmd

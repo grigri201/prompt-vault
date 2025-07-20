@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -102,16 +103,102 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	// Generate gist name
 	gistName := fmt.Sprintf("%s-%s", prompt.Author, prompt.Name)
 
-	// Create or update the gist
-	fmt.Fprintf(cmd.OutOrStdout(), "Uploading prompt '%s' by %s...\n", prompt.Name, prompt.Author)
+	// Check if prompt already exists in the index
+	cacheManager := cache.NewManager()
+	index, _ := cacheManager.GetIndex()
+	
+	var existingGistID string
+	
+	if index != nil {
+		// Look for existing prompt with same name and author
+		for _, entry := range index.Entries {
+			if entry.Name == prompt.Name && entry.Author == prompt.Author {
+				existingGistID = entry.GistID
+				break
+			}
+		}
+	}
 
 	// Reconstruct the full content with front matter
 	fullContent := parser.FormatPromptFile(&prompt.PromptMeta, prompt.Content)
 
-	// Create the gist
-	gistID, gistURL, err := client.CreateGist(ctx, gistName, prompt.Description, fullContent)
-	if err != nil {
-		return errors.WrapWithMessage(err, "failed to create gist")
+	var gistID, gistURL string
+
+	if existingGistID != "" {
+		// Check if the gist actually exists
+		fmt.Fprintf(cmd.OutOrStdout(), "Checking existing prompt '%s' by %s...\n", prompt.Name, prompt.Author)
+		
+		_, err := client.GetGist(ctx, existingGistID)
+		if err != nil {
+			// If gist doesn't exist, create a new one instead
+			if strings.Contains(err.Error(), "gist not found") {
+				fmt.Fprintf(cmd.OutOrStdout(), "Previous gist not found, creating new prompt...\n")
+				
+				newGistID, newGistURL, err := client.CreateGist(ctx, gistName, prompt.Description, fullContent)
+				if err != nil {
+					return errors.WrapWithMessage(err, "failed to create gist")
+				}
+				gistID = newGistID
+				gistURL = newGistURL
+				
+				// Clear the stale entry from cache
+				if index != nil {
+					for i, entry := range index.Entries {
+						if entry.GistID == existingGistID {
+							// Remove the stale entry
+							index.Entries = append(index.Entries[:i], index.Entries[i+1:]...)
+							break
+						}
+					}
+				}
+			} else {
+				return errors.WrapWithMessage(err, "failed to check existing gist")
+			}
+		} else {
+			// Gist exists, update it
+			fmt.Fprintf(cmd.OutOrStdout(), "Updating existing prompt '%s' by %s...\n", prompt.Name, prompt.Author)
+			
+			updatedURL, err := client.UpdateGist(ctx, existingGistID, gistName, prompt.Description, fullContent)
+			if err != nil {
+				// If update fails with 404, try creating new gist
+				if strings.Contains(err.Error(), "gist not found") {
+					fmt.Fprintf(cmd.OutOrStdout(), "Gist not found during update, creating new prompt...\n")
+					
+					newGistID, newGistURL, err := client.CreateGist(ctx, gistName, prompt.Description, fullContent)
+					if err != nil {
+						return errors.WrapWithMessage(err, "failed to create gist")
+					}
+					gistID = newGistID
+					gistURL = newGistURL
+					
+					// Clear the stale entry from cache
+					if index != nil {
+						for i, entry := range index.Entries {
+							if entry.GistID == existingGistID {
+								// Remove the stale entry
+								index.Entries = append(index.Entries[:i], index.Entries[i+1:]...)
+								break
+							}
+						}
+					}
+				} else {
+					return errors.WrapWithMessage(err, "failed to update gist")
+				}
+			} else {
+				gistID = existingGistID
+				gistURL = updatedURL
+			}
+		}
+	} else {
+		// Create new gist
+		fmt.Fprintf(cmd.OutOrStdout(), "Creating new prompt '%s' by %s...\n", prompt.Name, prompt.Author)
+		
+		newGistID, newGistURL, err := client.CreateGist(ctx, gistName, prompt.Description, fullContent)
+		if err != nil {
+			return errors.WrapWithMessage(err, "failed to create gist")
+		}
+		gistID = newGistID
+		gistURL = newGistURL
 	}
 
 	// Update the prompt with gist information
@@ -126,7 +213,6 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	}
 
 	// Cache the prompt locally
-	cacheManager := cache.NewManager()
 	if err := cacheManager.InitializeCache(); err != nil {
 		// Log but don't fail
 		fmt.Fprintf(cmd.OutOrStderr(), "Warning: failed to initialize cache: %v\n", err)
