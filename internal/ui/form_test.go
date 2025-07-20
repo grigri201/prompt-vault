@@ -135,6 +135,80 @@ func TestFormInput(t *testing.T) {
 	}
 }
 
+func TestFormMultiByteInput(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantOutput string
+		backspaces int
+		wantAfter  string
+	}{
+		{
+			name:       "Chinese characters",
+			input:      "你好世界",
+			wantOutput: "你好世界",
+			backspaces: 2,
+			wantAfter:  "你好",
+		},
+		{
+			name:       "Mixed ASCII and Chinese",
+			input:      "Hello你好",
+			wantOutput: "Hello你好",
+			backspaces: 2,
+			wantAfter:  "Hello",
+		},
+		{
+			name:       "Japanese characters",
+			input:      "こんにちは",
+			wantOutput: "こんにちは",
+			backspaces: 1,
+			wantAfter:  "こんにち",
+		},
+		{
+			name:       "Emoji characters",
+			input:      "Hello👋🌍",
+			wantOutput: "Hello👋🌍",
+			backspaces: 2,
+			wantAfter:  "Hello",
+		},
+		{
+			name:       "Korean characters",
+			input:      "안녕하세요",
+			wantOutput: "안녕하세요",
+			backspaces: 1,
+			wantAfter:  "안녕하세",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			form := NewForm("Test", []string{"field"})
+			model := tea.Model(form)
+
+			// Type multi-byte characters
+			for _, r := range tt.input {
+				model, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+			}
+
+			f := model.(FormModel)
+			if f.Fields[0].Value != tt.wantOutput {
+				t.Errorf("Field value = %q, want %q", f.Fields[0].Value, tt.wantOutput)
+			}
+
+			// Test backspace with multi-byte characters
+			for i := 0; i < tt.backspaces; i++ {
+				model, _ = model.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+			}
+			f = model.(FormModel)
+
+			if f.Fields[0].Value != tt.wantAfter {
+				t.Errorf("After %d backspaces, field value = %q, want %q", 
+					tt.backspaces, f.Fields[0].Value, tt.wantAfter)
+			}
+		})
+	}
+}
+
 func TestFormSubmission(t *testing.T) {
 	tests := []struct {
 		name         string

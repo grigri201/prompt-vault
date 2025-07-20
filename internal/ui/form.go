@@ -89,11 +89,20 @@ func (m FormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "backspace":
 			if len(m.Fields[m.CurrentField].Value) > 0 {
-				m.Fields[m.CurrentField].Value = m.Fields[m.CurrentField].Value[:len(m.Fields[m.CurrentField].Value)-1]
+				// Convert to runes to handle multi-byte characters properly
+				runes := []rune(m.Fields[m.CurrentField].Value)
+				if len(runes) > 0 {
+					m.Fields[m.CurrentField].Value = string(runes[:len(runes)-1])
+				}
 			}
 		default:
 			// Add character to current field
-			if len(msg.String()) == 1 {
+			// Handle both single-byte and multi-byte characters (including Chinese)
+			if msg.Type == tea.KeyRunes {
+				// This handles multi-byte characters properly
+				m.Fields[m.CurrentField].Value += string(msg.Runes)
+			} else if len(msg.String()) > 0 && !strings.HasPrefix(msg.String(), "ctrl+") && !strings.HasPrefix(msg.String(), "alt+") {
+				// Fallback for other key types
 				m.Fields[m.CurrentField].Value += msg.String()
 			}
 		}
