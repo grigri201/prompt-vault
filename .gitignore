@@ -35,3 +35,6 @@ Thumbs.db
 # Application specific
 ~/.config/prompt-vault/
 ~/.cache/prompt-vault/
+
+# Prompt directory
+prompt/

@@ -4,11 +4,15 @@ import (
 	"fmt"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"github.com/grigri201/prompt-vault/internal/cache"
+	"github.com/grigri201/prompt-vault/internal/clipboard"
 	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/models"
+	"github.com/grigri201/prompt-vault/internal/parser"
+	"github.com/grigri201/prompt-vault/internal/ui"
 )
 
 // newGetCmd creates the get command
@@ -65,6 +69,8 @@ func runGet(cmd *cobra.Command, args []string) error {
 	// Display matches
 	fmt.Fprintf(cmd.OutOrStdout(), "Found %d prompt(s):\n\n", len(matches))
 
+	// Create selector items
+	selectorItems := make([]string, len(matches))
 	for i, idx := range matches {
 		entry := index.Entries[idx]
 		fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
@@ -76,11 +82,77 @@ func runGet(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(cmd.OutOrStdout(), "    Description: %s\n", entry.Description)
 		}
 		fmt.Fprintln(cmd.OutOrStdout())
+		
+		// Build selector item
+		selectorItems[i] = fmt.Sprintf("%s by %s", entry.Name, entry.Author)
 	}
 
-	// For now, just show the search results
-	// Interactive selection will be implemented in task 7.2
-	fmt.Fprintln(cmd.OutOrStdout(), "Interactive prompt selection will be available soon.")
+	// Create and run selector
+	selector := ui.NewSelector(selectorItems)
+	fmt.Fprintln(cmd.OutOrStdout())
+	
+	p := tea.NewProgram(selector)
+	finalModel, err := p.Run()
+	if err != nil {
+		return errors.WrapWithMessage(err, "failed to run selector")
+	}
+
+	// Check if user made a selection
+	selectorModel := finalModel.(ui.SelectorModel)
+	if !selectorModel.IsConfirmed() {
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNo selection made.")
+		return nil
+	}
+
+	// Get the selected prompt entry
+	selectedIdx := matches[selectorModel.Selected]
+	selectedEntry := index.Entries[selectedIdx]
+
+	// Load the prompt content
+	prompt, err := cacheManager.GetPrompt(selectedEntry.GistID)
+	if err != nil {
+		return errors.WrapWithMessage(err, "failed to load prompt")
+	}
+
+	// Parse variables in the prompt
+	vars := parser.ExtractVariables(prompt.Content)
+	
+	// If there are variables, show form to collect values
+	var finalContent string
+	if len(vars) > 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "\nPrompt contains %d variable(s) to fill:\n", len(vars))
+		
+		// Create and run form
+		form := ui.NewForm("Fill in the variables", vars)
+		formProgram := tea.NewProgram(form)
+		formModel, err := formProgram.Run()
+		if err != nil {
+			return errors.WrapWithMessage(err, "failed to run form")
+		}
+		
+		// Check if form was submitted
+		finalForm := formModel.(ui.FormModel)
+		if !finalForm.IsSubmitted() {
+			fmt.Fprintln(cmd.OutOrStdout(), "\nForm cancelled.")
+			return nil
+		}
+		
+		// Replace variables with values
+		values := finalForm.GetValues()
+		finalContent = parser.FillVariables(prompt.Content, values)
+	} else {
+		finalContent = prompt.Content
+	}
+
+	// Copy to clipboard
+	err = clipboard.Copy(finalContent)
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "\nWarning: Failed to copy to clipboard: %v\n", err)
+		fmt.Fprintln(cmd.OutOrStdout(), "\nPrompt content:")
+		fmt.Fprintln(cmd.OutOrStdout(), finalContent)
+	} else {
+		fmt.Fprintln(cmd.OutOrStdout(), "\n✓ Prompt copied to clipboard!")
+	}
 
 	return nil
 }
