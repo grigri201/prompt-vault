@@ -4,15 +4,13 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/grigri201/prompt-vault/internal/auth"
 	"github.com/grigri201/prompt-vault/internal/errors"
+	"github.com/grigri201/prompt-vault/internal/gist"
 )
 
 // newLoginCmd creates the login command
@@ -83,19 +81,9 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// readToken reads the token from input, hiding it if possible
+// readToken reads the token from input using visible input
 func readToken(cmd *cobra.Command) (string, error) {
-	// Check if input is from terminal
-	if file, ok := cmd.InOrStdin().(*os.File); ok && term.IsTerminal(int(file.Fd())) {
-		// Read password securely (hidden input)
-		tokenBytes, err := term.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			return "", err
-		}
-		return string(tokenBytes), nil
-	}
-
-	// Fallback to regular reading (for testing or piped input)
+	// Always use visible input for better compatibility
 	reader := bufio.NewReader(cmd.InOrStdin())
 	token, err := reader.ReadString('\n')
 	if err != nil {
@@ -106,19 +94,22 @@ func readToken(cmd *cobra.Command) (string, error) {
 
 // validateAndSaveToken validates the token and saves it if valid
 func validateAndSaveToken(ctx context.Context, authManager *auth.Manager, token string) (string, error) {
-	// First save the token temporarily to validate it
-	if err := authManager.SaveToken(token, ""); err != nil {
-		return "", err
+	// Create a temporary gist client to validate the token
+	client, err := gist.NewClient(token)
+	if err != nil {
+		return "", errors.WrapWithMessage(err, "failed to create GitHub client")
 	}
 
 	// Validate token and get username
-	username, err := authManager.ValidateToken(ctx)
+	username, err := client.ValidateToken(ctx)
 	if err != nil {
-		// Remove invalid token
-		authManager.RemoveToken()
 		return "", err
 	}
 
-	// Token is valid, it's already saved with the correct username
+	// Save the validated token with username
+	if err := authManager.SaveToken(token, username); err != nil {
+		return "", errors.WrapWithMessage(err, "failed to save token")
+	}
+
 	return username, nil
 }
