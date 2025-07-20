@@ -17,12 +17,12 @@ type FormField struct {
 
 // FormModel represents a multi-field form
 type FormModel struct {
-	Title         string
-	Fields        []FormField
-	CurrentField  int
-	Submitted     bool
-	ShowError     bool
-	ErrorMessage  string
+	Title        string
+	Fields       []FormField
+	CurrentField int
+	Submitted    bool
+	ShowError    bool
+	ErrorMessage string
 }
 
 // NewForm creates a new form model
@@ -127,7 +127,7 @@ func (m FormModel) View() string {
 		} else {
 			fieldStyle = fieldStyle.Foreground(lipgloss.Color("246"))
 		}
-		
+
 		b.WriteString(fieldStyle.Render(field.Name))
 		if field.Required {
 			b.WriteString(lipgloss.NewStyle().
@@ -143,7 +143,7 @@ func (m FormModel) View() string {
 		} else {
 			valueStyle = valueStyle.Foreground(lipgloss.Color("250"))
 		}
-		
+
 		value := field.Value
 		if value == "" && i != m.CurrentField {
 			value = "(empty)"

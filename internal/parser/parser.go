@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/models"
 	"gopkg.in/yaml.v3"
 )
@@ -13,21 +14,21 @@ import (
 func ParseYAMLFrontMatter(content string) (*models.PromptMeta, string, error) {
 	// Check if content starts with front matter delimiter
 	if !strings.HasPrefix(content, "---\n") && !strings.HasPrefix(content, "---\r\n") {
-		return nil, "", fmt.Errorf("missing YAML front matter")
+		return nil, "", errors.NewParsingErrorMsg("ParseYAMLFrontMatter", "missing YAML front matter")
 	}
 
 	// Find the closing delimiter
 	// Handle both Unix and Windows line endings
 	content = strings.TrimPrefix(content, "---\n")
 	content = strings.TrimPrefix(content, "---\r\n")
-	
+
 	// Find the end of front matter
 	endIndex := strings.Index(content, "\n---\n")
 	endIndexWin := strings.Index(content, "\r\n---\r\n")
-	
+
 	var frontMatter string
 	var promptContent string
-	
+
 	if endIndex == -1 && endIndexWin == -1 {
 		// Check if the entire content is just front matter
 		if strings.HasSuffix(content, "\n---") || strings.HasSuffix(content, "\r\n---") {
@@ -36,7 +37,7 @@ func ParseYAMLFrontMatter(content string) (*models.PromptMeta, string, error) {
 			frontMatter = strings.TrimSuffix(frontMatter, "\r\n---")
 			promptContent = ""
 		} else {
-			return nil, "", fmt.Errorf("unclosed YAML front matter")
+			return nil, "", errors.NewParsingErrorMsg("ParseYAMLFrontMatter", "unclosed YAML front matter")
 		}
 	} else {
 		// Determine which line ending style is used
@@ -52,12 +53,12 @@ func ParseYAMLFrontMatter(content string) (*models.PromptMeta, string, error) {
 	// Parse YAML front matter
 	var meta models.PromptMeta
 	if err := yaml.Unmarshal([]byte(frontMatter), &meta); err != nil {
-		return nil, "", fmt.Errorf("failed to parse YAML front matter: %w", err)
+		return nil, "", errors.WrapWithMessage(err, "failed to parse YAML front matter")
 	}
 
 	// Validate required fields
 	if err := meta.Validate(); err != nil {
-		return nil, "", fmt.Errorf("invalid front matter: %w", err)
+		return nil, "", errors.WrapWithMessage(err, "invalid front matter")
 	}
 
 	// Trim any leading/trailing whitespace from content
@@ -88,7 +89,7 @@ func ExtractVariables(content string) []string {
 	// Use a map to track unique variables and a slice to maintain order
 	seen := make(map[string]bool)
 	var variables []string
-	
+
 	i := 0
 	for i < len(content) {
 		// Find the start of a potential variable
@@ -97,14 +98,14 @@ func ExtractVariables(content string) []string {
 			break
 		}
 		start += i
-		
+
 		// Check if this is a nested brace (previous char is also '{')
 		if start > 0 && content[start-1] == '{' {
 			// This is part of {{ pattern, skip it
 			i = start + 1
 			continue
 		}
-		
+
 		// Find the matching closing brace
 		end := strings.IndexByte(content[start+1:], '}')
 		if end == -1 {
@@ -113,24 +114,24 @@ func ExtractVariables(content string) []string {
 			continue
 		}
 		end += start + 1
-		
+
 		// Check if the closing brace is followed by another '}'
 		if end+1 < len(content) && content[end+1] == '}' {
 			// This is part of }} pattern, skip it
 			i = start + 1
 			continue
 		}
-		
+
 		// Extract the content between braces
 		varContent := content[start+1 : end]
-		
+
 		// Check if there are any braces in the content
 		if strings.ContainsAny(varContent, "{}") {
 			// Skip variables with braces in the content
 			i = start + 1
 			continue
 		}
-		
+
 		// Validate the variable name
 		if varContent != "" && isValidVariableName(varContent) {
 			if !seen[varContent] {
@@ -138,11 +139,11 @@ func ExtractVariables(content string) []string {
 				variables = append(variables, varContent)
 			}
 		}
-		
+
 		// Move past this variable
 		i = end + 1
 	}
-	
+
 	return variables
 }
 
@@ -151,17 +152,17 @@ func isValidVariableName(name string) bool {
 	if name == "" {
 		return false
 	}
-	
+
 	// Check if all characters are valid (letters, numbers, underscores, hyphens)
 	for _, ch := range name {
-		if !((ch >= 'a' && ch <= 'z') || 
-		     (ch >= 'A' && ch <= 'Z') || 
-		     (ch >= '0' && ch <= '9') || 
-		     ch == '_' || ch == '-') {
+		if !((ch >= 'a' && ch <= 'z') ||
+			(ch >= 'A' && ch <= 'Z') ||
+			(ch >= '0' && ch <= '9') ||
+			ch == '_' || ch == '-') {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -172,15 +173,15 @@ func FillVariables(content string, values map[string]string) string {
 	if values == nil {
 		return content
 	}
-	
+
 	result := content
-	
+
 	// Replace each variable with its value
 	for varName, value := range values {
 		placeholder := "{" + varName + "}"
 		result = strings.ReplaceAll(result, placeholder, value)
 	}
-	
+
 	return result
 }
 
@@ -193,7 +194,7 @@ func FormatPromptFile(meta *models.PromptMeta, content string) string {
 		"category": meta.Category,
 		"tags":     meta.Tags,
 	}
-	
+
 	// Add optional fields
 	if meta.Version != "" {
 		metaMap["version"] = meta.Version
@@ -201,14 +202,14 @@ func FormatPromptFile(meta *models.PromptMeta, content string) string {
 	if meta.Description != "" {
 		metaMap["description"] = meta.Description
 	}
-	
+
 	// Marshal to YAML
 	metaYAML, err := yaml.Marshal(metaMap)
 	if err != nil {
 		// Fallback to simple format
-		return fmt.Sprintf("---\nname: %s\nauthor: %s\ncategory: %s\ntags: %v\n---\n%s", 
+		return fmt.Sprintf("---\nname: %s\nauthor: %s\ncategory: %s\ntags: %v\n---\n%s",
 			meta.Name, meta.Author, meta.Category, meta.Tags, content)
 	}
-	
+
 	return fmt.Sprintf("---\n%s---\n%s", string(metaYAML), content)
 }

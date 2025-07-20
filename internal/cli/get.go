@@ -7,9 +7,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/grigri201/prompt-vault/internal/cache"
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/models"
 )
-
 
 // newGetCmd creates the get command
 func newGetCmd() *cobra.Command {
@@ -32,7 +32,7 @@ func runGet(cmd *cobra.Command, args []string) error {
 	// Get index from cache
 	index, err := cacheManager.GetIndex()
 	if err != nil {
-		return fmt.Errorf("failed to load index: %w", err)
+		return errors.WrapWithMessage(err, "failed to load index")
 	}
 
 	// Check if index is empty
@@ -64,7 +64,7 @@ func runGet(cmd *cobra.Command, args []string) error {
 
 	// Display matches
 	fmt.Fprintf(cmd.OutOrStdout(), "Found %d prompt(s):\n\n", len(matches))
-	
+
 	for i, idx := range matches {
 		entry := index.Entries[idx]
 		fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
@@ -91,28 +91,28 @@ func matchesKeyword(entry models.IndexEntry, keyword string) bool {
 	if strings.Contains(strings.ToLower(entry.Name), keyword) {
 		return true
 	}
-	
+
 	// Search in author
 	if strings.Contains(strings.ToLower(entry.Author), keyword) {
 		return true
 	}
-	
+
 	// Search in category
 	if strings.Contains(strings.ToLower(entry.Category), keyword) {
 		return true
 	}
-	
+
 	// Search in description
 	if strings.Contains(strings.ToLower(entry.Description), keyword) {
 		return true
 	}
-	
+
 	// Search in tags
 	for _, tag := range entry.Tags {
 		if strings.Contains(strings.ToLower(tag), keyword) {
 			return true
 		}
 	}
-	
+
 	return false
 }

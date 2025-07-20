@@ -29,11 +29,11 @@ func Copy(text string) error {
 func copyDarwin(text string) error {
 	cmd := exec.Command("pbcopy")
 	cmd.Stdin = strings.NewReader(text)
-	
+
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to copy to clipboard on macOS: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -43,38 +43,38 @@ func copyLinux(text string) error {
 	if isCommandAvailable("xclip") {
 		cmd := exec.Command("xclip", "-selection", "clipboard")
 		cmd.Stdin = strings.NewReader(text)
-		
+
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to copy to clipboard with xclip: %w", err)
 		}
-		
+
 		return nil
 	}
-	
+
 	// Try xsel as fallback
 	if isCommandAvailable("xsel") {
 		cmd := exec.Command("xsel", "--clipboard", "--input")
 		cmd.Stdin = strings.NewReader(text)
-		
+
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to copy to clipboard with xsel: %w", err)
 		}
-		
+
 		return nil
 	}
-	
+
 	// Try wl-copy for Wayland
 	if isCommandAvailable("wl-copy") {
 		cmd := exec.Command("wl-copy")
 		cmd.Stdin = strings.NewReader(text)
-		
+
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to copy to clipboard with wl-copy: %w", err)
 		}
-		
+
 		return nil
 	}
-	
+
 	return fmt.Errorf("no clipboard utility found (xclip, xsel, or wl-copy required)")
 }
 
@@ -82,17 +82,17 @@ func copyLinux(text string) error {
 func copyWindows(text string) error {
 	// Use PowerShell to access Windows clipboard
 	cmd := exec.Command("powershell", "-command", "Set-Clipboard", "-Value", text)
-	
+
 	if err := cmd.Run(); err != nil {
 		// Fallback to clip.exe for older Windows versions
 		clipCmd := exec.Command("clip")
 		clipCmd.Stdin = strings.NewReader(text)
-		
+
 		if err := clipCmd.Run(); err != nil {
 			return fmt.Errorf("failed to copy to clipboard on Windows: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 

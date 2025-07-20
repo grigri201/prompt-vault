@@ -359,14 +359,14 @@ func TestExtractVariables(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ExtractVariables(tt.content)
-			
+
 			// Check length
 			if len(result) != len(tt.expected) {
 				t.Errorf("ExtractVariables() returned %d variables, want %d", len(result), len(tt.expected))
 				t.Errorf("Got: %v, Want: %v", result, tt.expected)
 				return
 			}
-			
+
 			// Check each variable
 			for i, v := range tt.expected {
 				if i >= len(result) || result[i] != v {
@@ -380,9 +380,9 @@ func TestExtractVariables(t *testing.T) {
 func TestExtractVariables_OrderPreservation(t *testing.T) {
 	content := "First {var1}, then {var2}, then {var1} again, finally {var3}"
 	expected := []string{"var1", "var2", "var3"}
-	
+
 	result := ExtractVariables(content)
-	
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("ExtractVariables() = %v, want %v (order matters)", result, expected)
 	}
@@ -390,10 +390,10 @@ func TestExtractVariables_OrderPreservation(t *testing.T) {
 
 func TestFillVariables(t *testing.T) {
 	tests := []struct {
-		name      string
-		content   string
-		values    map[string]string
-		expected  string
+		name     string
+		content  string
+		values   map[string]string
+		expected string
 	}{
 		{
 			name:    "single variable replacement",
@@ -552,9 +552,9 @@ func TestFillVariables_PreservesOriginal(t *testing.T) {
 	// Test that the original content string is not modified
 	original := "Hello {name}!"
 	values := map[string]string{"name": "World"}
-	
+
 	_ = FillVariables(original, values)
-	
+
 	if original != "Hello {name}!" {
 		t.Error("FillVariables modified the original string")
 	}

@@ -2,12 +2,12 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/grigri201/prompt-vault/internal/config"
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
 )
 
@@ -39,16 +39,16 @@ func NewManagerWithPath(configPath string) *Manager {
 func (m *Manager) SaveToken(token, username string) error {
 	// Validate inputs
 	if token == "" {
-		return errors.New("token is required")
+		return errors.NewValidationErrorMsg("SaveToken", "token is required")
 	}
 	if username == "" {
-		return errors.New("username is required")
+		return errors.NewValidationErrorMsg("SaveToken", "username is required")
 	}
 
 	// Ensure config directory exists
 	configDir := filepath.Dir(m.configPath)
 	if err := os.MkdirAll(configDir, 0700); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+		return errors.WrapWithMessage(err, "failed to create config directory")
 	}
 
 	// Load existing config or create new one
@@ -64,7 +64,7 @@ func (m *Manager) SaveToken(token, username string) error {
 
 	// Save config
 	if err := cfg.Save(m.configPath); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+		return errors.WrapWithMessage(err, "failed to save config")
 	}
 
 	return nil
@@ -75,12 +75,12 @@ func (m *Manager) GetToken() (string, string, error) {
 	// Load config
 	cfg, err := config.Load(m.configPath)
 	if err != nil {
-		return "", "", fmt.Errorf("no token found: %w", err)
+		return "", "", errors.WrapWithMessage(err, "no token found")
 	}
 
 	// Validate token exists
 	if cfg.Token == "" {
-		return "", "", errors.New("no token found in config")
+		return "", "", errors.NewAuthErrorMsg("GetToken", "no token found in config")
 	}
 
 	return cfg.Token, cfg.Username, nil
@@ -91,7 +91,7 @@ func (m *Manager) RemoveToken() error {
 	// Load config
 	cfg, err := config.Load(m.configPath)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return errors.WrapWithMessage(err, "failed to load config")
 	}
 
 	// Clear token and username
@@ -100,7 +100,7 @@ func (m *Manager) RemoveToken() error {
 
 	// Save config
 	if err := cfg.Save(m.configPath); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+		return errors.WrapWithMessage(err, "failed to save config")
 	}
 
 	return nil
@@ -122,7 +122,7 @@ func (m *Manager) ValidateToken(ctx context.Context) (string, error) {
 	// Create GitHub client
 	client, err := gist.NewClient(token)
 	if err != nil {
-		return "", fmt.Errorf("failed to create GitHub client: %w", err)
+		return "", errors.WrapWithMessage(err, "failed to create GitHub client")
 	}
 
 	// Validate token and get username

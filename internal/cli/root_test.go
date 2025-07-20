@@ -50,21 +50,21 @@ func TestRootCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create root command
 			cmd := NewRootCmd()
-			
+
 			// Capture output
 			var out bytes.Buffer
 			cmd.SetOut(&out)
 			cmd.SetErr(&out)
 			cmd.SetArgs(tt.args)
-			
+
 			// Execute command
 			err := cmd.Execute()
-			
+
 			// Check error
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			// Check output
 			output := out.String()
 			for _, want := range tt.wantOutput {
@@ -78,7 +78,7 @@ func TestRootCommand(t *testing.T) {
 
 func TestCommandStructure(t *testing.T) {
 	cmd := NewRootCmd()
-	
+
 	// Check that all expected commands exist
 	expectedCommands := []string{
 		"login",
@@ -88,13 +88,13 @@ func TestCommandStructure(t *testing.T) {
 		"delete",
 		"sync",
 	}
-	
+
 	commands := cmd.Commands()
 	commandMap := make(map[string]bool)
 	for _, c := range commands {
 		commandMap[c.Name()] = true
 	}
-	
+
 	for _, expected := range expectedCommands {
 		if !commandMap[expected] {
 			t.Errorf("Missing expected command: %s", expected)
@@ -104,7 +104,7 @@ func TestCommandStructure(t *testing.T) {
 
 func TestCommandAliases(t *testing.T) {
 	cmd := NewRootCmd()
-	
+
 	// Test command aliases
 	aliasTests := []struct {
 		command string
@@ -114,7 +114,7 @@ func TestCommandAliases(t *testing.T) {
 		{"upload", "up"},
 		{"delete", "del"},
 	}
-	
+
 	for _, tt := range aliasTests {
 		t.Run(tt.command, func(t *testing.T) {
 			var found bool

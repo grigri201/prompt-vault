@@ -3,6 +3,8 @@ package models
 import (
 	"fmt"
 	"time"
+
+	"github.com/grigri201/prompt-vault/internal/errors"
 )
 
 // PromptMeta contains the metadata for a prompt template
@@ -18,16 +20,16 @@ type PromptMeta struct {
 // Validate checks if all required fields are present and valid
 func (m *PromptMeta) Validate() error {
 	if m.Name == "" {
-		return fmt.Errorf("name is required")
+		return errors.NewValidationErrorMsg("PromptMeta.Validate", "name is required")
 	}
 	if m.Author == "" {
-		return fmt.Errorf("author is required")
+		return errors.NewValidationErrorMsg("PromptMeta.Validate", "author is required")
 	}
 	if m.Category == "" {
-		return fmt.Errorf("category is required")
+		return errors.NewValidationErrorMsg("PromptMeta.Validate", "category is required")
 	}
 	if len(m.Tags) == 0 {
-		return fmt.Errorf("at least one tag is required")
+		return errors.NewValidationErrorMsg("PromptMeta.Validate", "at least one tag is required")
 	}
 	return nil
 }

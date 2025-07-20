@@ -29,7 +29,7 @@ func TestManager_SaveToken(t *testing.T) {
 				if _, err := os.Stat(configPath); os.IsNotExist(err) {
 					t.Error("Config file was not created")
 				}
-				
+
 				// Verify file permissions (should be 0600)
 				info, err := os.Stat(configPath)
 				if err != nil {
@@ -38,7 +38,7 @@ func TestManager_SaveToken(t *testing.T) {
 				if perm := info.Mode().Perm(); perm != 0600 {
 					t.Errorf("Config file permissions = %v, want 0600", perm)
 				}
-				
+
 				// Verify content
 				cfg, err := config.Load(configPath)
 				if err != nil {
@@ -119,21 +119,21 @@ func TestManager_SaveToken(t *testing.T) {
 			// Create temp config directory
 			tempDir := t.TempDir()
 			configPath := filepath.Join(tempDir, "prompt-vault", "config.yaml")
-			
+
 			// Create manager
 			m := &Manager{
 				configPath: configPath,
 			}
-			
+
 			if tt.setup != nil {
 				tt.setup(t, configPath)
 			}
-			
+
 			err := m.SaveToken(tt.token, tt.username)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SaveToken() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if !tt.wantErr && tt.verify != nil {
 				tt.verify(t, configPath)
 			}
@@ -209,25 +209,25 @@ func TestManager_GetToken(t *testing.T) {
 			// Create temp config directory
 			tempDir := t.TempDir()
 			configPath := filepath.Join(tempDir, "prompt-vault", "config.yaml")
-			
+
 			// Create manager
 			m := &Manager{
 				configPath: configPath,
 			}
-			
+
 			if tt.setup != nil {
 				tt.setup(t, configPath)
 			}
-			
+
 			token, username, err := m.GetToken()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetToken() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if token != tt.wantToken {
 				t.Errorf("GetToken() token = %v, want %v", token, tt.wantToken)
 			}
-			
+
 			if username != tt.wantUsername {
 				t.Errorf("GetToken() username = %v, want %v", username, tt.wantUsername)
 			}
@@ -278,21 +278,21 @@ func TestManager_RemoveToken(t *testing.T) {
 			// Create temp config directory
 			tempDir := t.TempDir()
 			configPath := filepath.Join(tempDir, "prompt-vault", "config.yaml")
-			
+
 			// Create manager
 			m := &Manager{
 				configPath: configPath,
 			}
-			
+
 			if tt.setup != nil {
 				tt.setup(t, configPath)
 			}
-			
+
 			err := m.RemoveToken()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RemoveToken() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if !tt.wantErr && tt.verify != nil {
 				tt.verify(t, configPath)
 			}
@@ -304,16 +304,16 @@ func TestNewManager(t *testing.T) {
 	// Save original HOME
 	originalHome := os.Getenv("HOME")
 	defer os.Setenv("HOME", originalHome)
-	
+
 	// Set test HOME
 	testHome := t.TempDir()
 	os.Setenv("HOME", testHome)
-	
+
 	m := NewManager()
 	if m == nil {
 		t.Fatal("NewManager() returned nil")
 	}
-	
+
 	expectedPath := filepath.Join(testHome, ".config", "prompt-vault", "config.yaml")
 	if m.configPath != expectedPath {
 		t.Errorf("configPath = %v, want %v", m.configPath, expectedPath)
@@ -323,11 +323,11 @@ func TestNewManager(t *testing.T) {
 func TestNewManagerWithPath(t *testing.T) {
 	customPath := "/custom/path/config.yaml"
 	m := NewManagerWithPath(customPath)
-	
+
 	if m == nil {
 		t.Fatal("NewManagerWithPath() returned nil")
 	}
-	
+
 	if m.configPath != customPath {
 		t.Errorf("configPath = %v, want %v", m.configPath, customPath)
 	}
@@ -390,31 +390,31 @@ func TestManager_ValidateToken(t *testing.T) {
 			if tt.name == "handles invalid token" {
 				t.Skip("Skipping API test - requires mock implementation")
 			}
-			
+
 			// Create temp config directory
 			tempDir := t.TempDir()
 			configPath := filepath.Join(tempDir, "prompt-vault", "config.yaml")
-			
+
 			// Create manager
 			m := &Manager{
 				configPath: configPath,
 			}
-			
+
 			if tt.setupConfig != nil {
 				tt.setupConfig(t, configPath)
 			}
-			
+
 			username, err := m.ValidateToken(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateToken() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
 				if !contains(err.Error(), tt.wantErrMessage) {
 					t.Errorf("ValidateToken() error = %v, want error containing %v", err, tt.wantErrMessage)
 				}
 			}
-			
+
 			if !tt.wantErr && username != tt.wantUsername {
 				t.Errorf("ValidateToken() username = %v, want %v", username, tt.wantUsername)
 			}
@@ -460,7 +460,7 @@ func TestManager_GetCurrentUser(t *testing.T) {
 					t.Fatalf("Failed to create test config: %v", err)
 				}
 			},
-			wantUsername: "", // Would be fetched from API
+			wantUsername: "",    // Would be fetched from API
 			wantErr:      false, // In real test, this would depend on API
 		},
 	}
@@ -471,31 +471,31 @@ func TestManager_GetCurrentUser(t *testing.T) {
 			if tt.name == "fetches username when not cached" {
 				t.Skip("Skipping API test - requires mock implementation")
 			}
-			
+
 			// Create temp config directory
 			tempDir := t.TempDir()
 			configPath := filepath.Join(tempDir, "prompt-vault", "config.yaml")
-			
+
 			// Create manager
 			m := &Manager{
 				configPath: configPath,
 			}
-			
+
 			if tt.setupConfig != nil {
 				tt.setupConfig(t, configPath)
 			}
-			
+
 			username, err := m.GetCurrentUser(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetCurrentUser() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
 				if !contains(err.Error(), tt.wantErrMessage) {
 					t.Errorf("GetCurrentUser() error = %v, want error containing %v", err, tt.wantErrMessage)
 				}
 			}
-			
+
 			if !tt.wantErr && username != tt.wantUsername {
 				t.Errorf("GetCurrentUser() username = %v, want %v", username, tt.wantUsername)
 			}

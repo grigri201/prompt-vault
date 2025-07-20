@@ -22,8 +22,8 @@ func TestDeleteCommand(t *testing.T) {
 		wantErrMessage string
 	}{
 		{
-			name: "requires prompt name argument",
-			args: []string{"delete"},
+			name:    "requires prompt name argument",
+			args:    []string{"delete"},
 			wantErr: true,
 		},
 		{
@@ -195,29 +195,29 @@ func TestDeleteCommand(t *testing.T) {
 
 			// Create command
 			cmd := NewRootCmd()
-			
+
 			var out bytes.Buffer
 			cmd.SetOut(&out)
 			cmd.SetErr(&out)
 			cmd.SetArgs(tt.args)
-			
+
 			// Set input if provided
 			if tt.input != "" {
 				cmd.SetIn(strings.NewReader(tt.input))
 			}
-			
+
 			// Execute
 			err := cmd.Execute()
-			
+
 			// Check error
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if err != nil && tt.wantErrMessage != "" && !strings.Contains(err.Error(), tt.wantErrMessage) {
 				t.Errorf("Error message = %v, want containing %v", err.Error(), tt.wantErrMessage)
 			}
-			
+
 			// Check output
 			output := out.String()
 			for _, want := range tt.wantOutput {
@@ -231,17 +231,17 @@ func TestDeleteCommand(t *testing.T) {
 
 func TestDeleteCommand_Help(t *testing.T) {
 	cmd := NewRootCmd()
-	
+
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetArgs([]string{"delete", "--help"})
-	
+
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	
+
 	output := out.String()
 	expectedStrings := []string{
 		"Delete a prompt template",
@@ -250,7 +250,7 @@ func TestDeleteCommand_Help(t *testing.T) {
 		"--force",
 		"Skip confirmation prompt",
 	}
-	
+
 	for _, expected := range expectedStrings {
 		if !strings.Contains(output, expected) {
 			t.Errorf("Help text missing %q", expected)

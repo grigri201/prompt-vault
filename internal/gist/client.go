@@ -3,13 +3,14 @@ package gist
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/google/go-github/v73/github"
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/models"
+	goerrors "errors"
 )
 
 // Client wraps the GitHub API client for Gist operations
@@ -22,12 +23,12 @@ func NewClient(token string) (*Client, error) {
 	// Validate token
 	token = strings.TrimSpace(token)
 	if token == "" {
-		return nil, errors.New("token is required")
+		return nil, errors.NewValidationErrorMsg("NewClient", "token is required")
 	}
 
 	// Create authenticated client
 	client := github.NewClient(nil).WithAuthToken(token)
-	
+
 	return &Client{
 		github: client,
 	}, nil
@@ -39,16 +40,16 @@ func (c *Client) ValidateToken(ctx context.Context) (string, error) {
 	user, resp, err := c.github.Users.Get(ctx, "")
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusUnauthorized {
-			return "", fmt.Errorf("invalid token: %w", err)
+			return "", errors.NewAuthError("ValidateToken", err)
 		}
 		if c.IsRateLimitError(err) {
-			return "", fmt.Errorf("rate limit exceeded: %w", err)
+			return "", errors.NewNetworkError("ValidateToken", err)
 		}
-		return "", fmt.Errorf("failed to validate token: %w", err)
+		return "", errors.WrapWithMessage(err, "failed to validate token")
 	}
 
 	if user.Login == nil {
-		return "", errors.New("unable to get username from API response")
+		return "", errors.NewValidationErrorMsg("ValidateToken", "unable to get username from API response")
 	}
 
 	return *user.Login, nil
@@ -62,7 +63,7 @@ func (c *Client) IsRateLimitError(err error) bool {
 
 	// Check if it's a GitHub ErrorResponse
 	var errResp *github.ErrorResponse
-	if errors.As(err, &errResp) {
+	if goerrors.As(err, &errResp) {
 		// Check status code
 		if errResp.Response != nil && errResp.Response.StatusCode == http.StatusForbidden {
 			// Check for rate limit header
@@ -70,7 +71,7 @@ func (c *Client) IsRateLimitError(err error) bool {
 			if remaining == "0" {
 				return true
 			}
-			
+
 			// Check error message for rate limit text
 			message := strings.ToLower(errResp.Message)
 			if strings.Contains(message, "rate limit") {
@@ -91,7 +92,7 @@ func (c *Client) GetAPIError(err error) *github.ErrorResponse {
 	}
 
 	var errResp *github.ErrorResponse
-	if errors.As(err, &errResp) {
+	if goerrors.As(err, &errResp) {
 		return errResp
 	}
 
@@ -107,10 +108,10 @@ func (c *Client) GetGitHubClient() *github.Client {
 func (c *Client) CreateGist(ctx context.Context, gistName, description, content string) (string, string, error) {
 	// Validate inputs
 	if gistName == "" {
-		return "", "", errors.New("gist name is required")
+		return "", "", errors.NewValidationErrorMsg("CreateGist", "gist name is required")
 	}
 	if content == "" {
-		return "", "", errors.New("content is required")
+		return "", "", errors.NewValidationErrorMsg("CreateGist", "content is required")
 	}
 
 	// Prepare the gist request
@@ -128,13 +129,13 @@ func (c *Client) CreateGist(ctx context.Context, gistName, description, content 
 	gist, _, err := c.github.Gists.Create(ctx, gistReq)
 	if err != nil {
 		if c.IsRateLimitError(err) {
-			return "", "", fmt.Errorf("rate limit exceeded: %w", err)
+			return "", "", errors.NewNetworkError("CreateGist", err)
 		}
-		return "", "", fmt.Errorf("failed to create gist: %w", err)
+		return "", "", errors.WrapWithMessage(err, "failed to create gist")
 	}
 
 	if gist.ID == nil || gist.HTMLURL == nil {
-		return "", "", errors.New("unexpected response from GitHub API")
+		return "", "", errors.NewNetworkErrorMsg("CreateGist", "unexpected response from GitHub API")
 	}
 
 	return *gist.ID, *gist.HTMLURL, nil
@@ -144,13 +145,13 @@ func (c *Client) CreateGist(ctx context.Context, gistName, description, content 
 func (c *Client) UpdateGist(ctx context.Context, gistID, gistName, description, content string) (string, error) {
 	// Validate inputs
 	if gistID == "" {
-		return "", errors.New("gist ID is required")
+		return "", errors.NewValidationErrorMsg("UpdateGist", "gist ID is required")
 	}
 	if gistName == "" {
-		return "", errors.New("gist name is required")
+		return "", errors.NewValidationErrorMsg("UpdateGist", "gist name is required")
 	}
 	if content == "" {
-		return "", errors.New("content is required")
+		return "", errors.NewValidationErrorMsg("UpdateGist", "content is required")
 	}
 
 	// Prepare the update request
@@ -167,19 +168,19 @@ func (c *Client) UpdateGist(ctx context.Context, gistID, gistName, description, 
 	gist, resp, err := c.github.Gists.Edit(ctx, gistID, gistReq)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			return "", fmt.Errorf("gist not found: %w", err)
+			return "", errors.WrapWithMessage(err, "gist not found")
 		}
 		if resp != nil && resp.StatusCode == http.StatusForbidden && !c.IsRateLimitError(err) {
-			return "", fmt.Errorf("permission denied: %w", err)
+			return "", errors.NewAuthError("UpdateGist", err)
 		}
 		if c.IsRateLimitError(err) {
-			return "", fmt.Errorf("rate limit exceeded: %w", err)
+			return "", errors.NewNetworkError("UpdateGist", err)
 		}
-		return "", fmt.Errorf("failed to update gist: %w", err)
+		return "", errors.WrapWithMessage(err, "failed to update gist")
 	}
 
 	if gist.HTMLURL == nil {
-		return "", errors.New("unexpected response from GitHub API")
+		return "", errors.NewNetworkErrorMsg("UpdateGist", "unexpected response from GitHub API")
 	}
 
 	return *gist.HTMLURL, nil
@@ -189,19 +190,19 @@ func (c *Client) UpdateGist(ctx context.Context, gistID, gistName, description, 
 func (c *Client) GetGist(ctx context.Context, gistID string) (*github.Gist, error) {
 	// Validate input
 	if gistID == "" {
-		return nil, errors.New("gist ID is required")
+		return nil, errors.NewValidationErrorMsg("GetGist", "gist ID is required")
 	}
 
 	// Get the gist
 	gist, resp, err := c.github.Gists.Get(ctx, gistID)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			return nil, fmt.Errorf("gist not found: %w", err)
+			return nil, errors.WrapWithMessage(err, "gist not found")
 		}
 		if c.IsRateLimitError(err) {
-			return nil, fmt.Errorf("rate limit exceeded: %w", err)
+			return nil, errors.NewNetworkError("GetGist", err)
 		}
-		return nil, fmt.Errorf("failed to get gist: %w", err)
+		return nil, errors.WrapWithMessage(err, "failed to get gist")
 	}
 
 	return gist, nil
@@ -211,22 +212,22 @@ func (c *Client) GetGist(ctx context.Context, gistID string) (*github.Gist, erro
 func (c *Client) DeleteGist(ctx context.Context, gistID string) error {
 	// Validate input
 	if gistID == "" {
-		return errors.New("gist ID is required")
+		return errors.NewValidationErrorMsg("DeleteGist", "gist ID is required")
 	}
 
 	// Delete the gist
 	resp, err := c.github.Gists.Delete(ctx, gistID)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			return fmt.Errorf("gist not found: %w", err)
+			return errors.WrapWithMessage(err, "gist not found")
 		}
 		if resp != nil && resp.StatusCode == http.StatusForbidden && !c.IsRateLimitError(err) {
-			return fmt.Errorf("permission denied: %w", err)
+			return errors.NewAuthError("DeleteGist", err)
 		}
 		if c.IsRateLimitError(err) {
-			return fmt.Errorf("rate limit exceeded: %w", err)
+			return errors.NewNetworkError("DeleteGist", err)
 		}
-		return fmt.Errorf("failed to delete gist: %w", err)
+		return errors.WrapWithMessage(err, "failed to delete gist")
 	}
 
 	return nil
@@ -236,10 +237,10 @@ func (c *Client) DeleteGist(ctx context.Context, gistID string) error {
 func (c *Client) UpdateIndexGist(ctx context.Context, username string, index *models.Index) (string, error) {
 	// Validate inputs
 	if username == "" {
-		return "", errors.New("username is required")
+		return "", errors.NewValidationErrorMsg("UpdateIndexGist", "username is required")
 	}
 	if index == nil {
-		return "", errors.New("index is required")
+		return "", errors.NewValidationErrorMsg("UpdateIndexGist", "index is required")
 	}
 
 	// Set the username in the index
@@ -248,7 +249,7 @@ func (c *Client) UpdateIndexGist(ctx context.Context, username string, index *mo
 	// Marshal index to JSON
 	indexJSON, err := json.MarshalIndent(index, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal index: %w", err)
+		return "", errors.WrapWithMessage(err, "failed to marshal index")
 	}
 
 	// Gist filename for index
@@ -257,7 +258,7 @@ func (c *Client) UpdateIndexGist(ctx context.Context, username string, index *mo
 	// Try to find existing index gist
 	gists, _, err := c.github.Gists.List(ctx, "", &github.GistListOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to list gists: %w", err)
+		return "", errors.WrapWithMessage(err, "failed to list gists")
 	}
 
 	// Look for existing index gist
@@ -289,7 +290,7 @@ func (c *Client) UpdateIndexGist(ctx context.Context, username string, index *mo
 
 		_, _, err = c.github.Gists.Edit(ctx, existingGistID, gistUpdate)
 		if err != nil {
-			return "", fmt.Errorf("failed to update index gist: %w", err)
+			return "", errors.WrapWithMessage(err, "failed to update index gist")
 		}
 
 		return existingGistID, nil
@@ -308,11 +309,11 @@ func (c *Client) UpdateIndexGist(ctx context.Context, username string, index *mo
 
 	createdGist, _, err := c.github.Gists.Create(ctx, newGist)
 	if err != nil {
-		return "", fmt.Errorf("failed to create index gist: %w", err)
+		return "", errors.WrapWithMessage(err, "failed to create index gist")
 	}
 
 	if createdGist.ID == nil {
-		return "", errors.New("unexpected response from GitHub API")
+		return "", errors.NewNetworkErrorMsg("UpdateIndexGist", "unexpected response from GitHub API")
 	}
 
 	return *createdGist.ID, nil

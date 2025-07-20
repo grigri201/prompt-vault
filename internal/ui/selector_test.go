@@ -87,12 +87,12 @@ func TestSelectorNumberInput(t *testing.T) {
 
 func TestSelectorValidation(t *testing.T) {
 	items := []string{"A", "B", "C"}
-	
+
 	tests := []struct {
-		name         string
-		input        string
-		wantError    bool
-		wantSelected int
+		name          string
+		input         string
+		wantError     bool
+		wantSelected  int
 		errorContains string
 	}{
 		{
@@ -182,7 +182,7 @@ func TestSelectorView(t *testing.T) {
 			wantContains: []string{
 				"Select a prompt",
 				"1. Option A",
-				"2. Option B", 
+				"2. Option B",
 				"3. Option C",
 				"Enter selection (1-3):",
 				"enter: confirm",
@@ -290,7 +290,7 @@ func TestIsConfirmed(t *testing.T) {
 
 func TestReset(t *testing.T) {
 	s := NewSelector([]string{"A", "B"})
-	
+
 	// Set some state
 	s.Selected = 1
 	s.Input = "123"

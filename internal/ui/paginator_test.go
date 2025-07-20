@@ -10,10 +10,10 @@ import (
 
 func TestNewPaginator(t *testing.T) {
 	tests := []struct {
-		name       string
-		items      []string
-		pageSize   int
-		wantPages  int
+		name      string
+		items     []string
+		pageSize  int
+		wantPages int
 	}{
 		{
 			name:      "empty items",
@@ -44,15 +44,15 @@ func TestNewPaginator(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPaginator(tt.items, tt.pageSize)
-			
+
 			if p.TotalPages != tt.wantPages {
 				t.Errorf("TotalPages = %d, want %d", p.TotalPages, tt.wantPages)
 			}
-			
+
 			if p.CurrentPage != 1 {
 				t.Errorf("CurrentPage = %d, want 1", p.CurrentPage)
 			}
-			
+
 			if p.PageSize != tt.pageSize {
 				t.Errorf("PageSize = %d, want %d", p.PageSize, tt.pageSize)
 			}
@@ -65,9 +65,9 @@ func TestPaginatorNavigation(t *testing.T) {
 	for i := 0; i < 25; i++ {
 		items[i] = fmt.Sprintf("Item %d", i+1)
 	}
-	
+
 	p := NewPaginator(items, 10)
-	
+
 	tests := []struct {
 		name        string
 		keyMsg      string
@@ -99,21 +99,21 @@ func TestPaginatorNavigation(t *testing.T) {
 			description: "vim style navigation",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset to page 1
 			p.CurrentPage = 1
-			
+
 			// Navigate to page 2 if needed for left arrow test
 			if tt.keyMsg == "left" || tt.keyMsg == "h" {
 				p.CurrentPage = 2
 			}
-			
+
 			// Send key message
 			model, _ := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(tt.keyMsg)})
 			updatedP := model.(PaginatorModel)
-			
+
 			if updatedP.CurrentPage != tt.wantPage {
 				t.Errorf("After %s: CurrentPage = %d, want %d", tt.keyMsg, updatedP.CurrentPage, tt.wantPage)
 			}
@@ -124,21 +124,21 @@ func TestPaginatorNavigation(t *testing.T) {
 func TestPaginatorBoundaries(t *testing.T) {
 	items := []string{"1", "2", "3", "4", "5"}
 	p := NewPaginator(items, 2) // 3 pages total
-	
+
 	// Test can't go past last page
 	p.CurrentPage = 3
 	model, _ := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("right")})
 	updatedP := model.(PaginatorModel)
-	
+
 	if updatedP.CurrentPage != 3 {
 		t.Errorf("Should stay on last page: CurrentPage = %d, want 3", updatedP.CurrentPage)
 	}
-	
+
 	// Test can't go before first page
 	p.CurrentPage = 1
 	model, _ = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("left")})
 	updatedP = model.(PaginatorModel)
-	
+
 	if updatedP.CurrentPage != 1 {
 		t.Errorf("Should stay on first page: CurrentPage = %d, want 1", updatedP.CurrentPage)
 	}
@@ -188,14 +188,14 @@ func TestPaginatorView(t *testing.T) {
 			wantContains: []string{"q: quit"},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPaginator(tt.items, tt.pageSize)
 			p.CurrentPage = tt.currentPage
-			
+
 			view := p.View()
-			
+
 			for _, want := range tt.wantContains {
 				if !strings.Contains(view, want) {
 					t.Errorf("View missing %q\nGot: %s", want, view)
@@ -208,7 +208,7 @@ func TestPaginatorView(t *testing.T) {
 func TestGetCurrentItems(t *testing.T) {
 	items := []string{"A", "B", "C", "D", "E", "F", "G"}
 	p := NewPaginator(items, 3)
-	
+
 	tests := []struct {
 		page      int
 		wantItems []string
@@ -226,16 +226,16 @@ func TestGetCurrentItems(t *testing.T) {
 			wantItems: []string{"G"},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("page_%d", tt.page), func(t *testing.T) {
 			p.CurrentPage = tt.page
 			got := p.GetCurrentItems()
-			
+
 			if len(got) != len(tt.wantItems) {
 				t.Errorf("GetCurrentItems() returned %d items, want %d", len(got), len(tt.wantItems))
 			}
-			
+
 			for i, item := range got {
 				if item != tt.wantItems[i] {
 					t.Errorf("Item[%d] = %s, want %s", i, item, tt.wantItems[i])
@@ -248,7 +248,7 @@ func TestGetCurrentItems(t *testing.T) {
 func TestGetCurrentRange(t *testing.T) {
 	items := []string{"A", "B", "C", "D", "E", "F", "G"}
 	p := NewPaginator(items, 3)
-	
+
 	tests := []struct {
 		page      int
 		wantStart int
@@ -270,12 +270,12 @@ func TestGetCurrentRange(t *testing.T) {
 			wantEnd:   7,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("page_%d", tt.page), func(t *testing.T) {
 			p.CurrentPage = tt.page
 			start, end := p.GetCurrentRange()
-			
+
 			if start != tt.wantStart {
 				t.Errorf("Start = %d, want %d", start, tt.wantStart)
 			}
@@ -288,11 +288,11 @@ func TestGetCurrentRange(t *testing.T) {
 
 func TestWindowResize(t *testing.T) {
 	p := NewPaginator([]string{"item"}, 10)
-	
+
 	// Test window resize message
 	model, _ := p.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	updatedP := model.(PaginatorModel)
-	
+
 	if updatedP.Width != 120 {
 		t.Errorf("Width = %d, want 120", updatedP.Width)
 	}
@@ -303,17 +303,16 @@ func TestWindowResize(t *testing.T) {
 
 func TestQuitCommands(t *testing.T) {
 	p := NewPaginator([]string{"item"}, 10)
-	
+
 	// Test q key
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
 	if cmd == nil {
 		t.Error("Expected quit command for 'q' key")
 	}
-	
+
 	// Test ctrl+c
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
 	if cmd == nil {
 		t.Error("Expected quit command for ctrl+c")
 	}
 }
-

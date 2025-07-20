@@ -10,6 +10,7 @@ import (
 
 	"github.com/grigri201/prompt-vault/internal/auth"
 	"github.com/grigri201/prompt-vault/internal/cache"
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
 	"github.com/grigri201/prompt-vault/internal/models"
 	"github.com/grigri201/prompt-vault/internal/parser"
@@ -46,32 +47,32 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	info, err := os.Stat(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("file not found: %s", filename)
+			return errors.NewFileSystemErrorMsg("upload", fmt.Sprintf("file not found: %s", filename))
 		}
-		return fmt.Errorf("failed to access file: %w", err)
+		return errors.WrapWithMessage(err, "failed to access file")
 	}
 
 	// Check if it's a regular file
 	if info.IsDir() {
-		return fmt.Errorf("%s is a directory, not a file", filename)
+		return errors.NewValidationErrorMsg("upload", fmt.Sprintf("%s is a directory, not a file", filename))
 	}
 
 	// Read file content
 	content, err := os.ReadFile(filename)
 	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
+		return errors.WrapWithMessage(err, "failed to read file")
 	}
 
 	// Parse the prompt file
 	fmt.Fprintf(cmd.OutOrStdout(), "Parsing prompt file: %s\n", filename)
 	prompt, err := parser.ParsePromptFile(string(content))
 	if err != nil {
-		return fmt.Errorf("failed to parse prompt file: %w", err)
+		return errors.WrapWithMessage(err, "failed to parse prompt file")
 	}
 
 	// Validate prompt metadata
 	if err := prompt.PromptMeta.Validate(); err != nil {
-		return fmt.Errorf("invalid prompt metadata: %w", err)
+		return errors.WrapWithMessage(err, "invalid prompt metadata")
 	}
 
 	// Set default version if not provided
@@ -84,18 +85,18 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	username, err := authManager.GetCurrentUser(ctx)
 	if err != nil {
-		return fmt.Errorf("not authenticated. Please run 'pv login' first")
+		return errors.NewAuthErrorMsg("upload", "not authenticated. Please run 'pv login' first")
 	}
 
 	// Create GitHub client
 	token, _, err := authManager.GetToken()
 	if err != nil {
-		return fmt.Errorf("failed to get authentication token: %w", err)
+		return errors.WrapWithMessage(err, "failed to get authentication token")
 	}
 
 	client, err := gist.NewClient(token)
 	if err != nil {
-		return fmt.Errorf("failed to create GitHub client: %w", err)
+		return errors.WrapWithMessage(err, "failed to create GitHub client")
 	}
 
 	// Generate gist name
@@ -103,14 +104,14 @@ func runUpload(cmd *cobra.Command, args []string) error {
 
 	// Create or update the gist
 	fmt.Fprintf(cmd.OutOrStdout(), "Uploading prompt '%s' by %s...\n", prompt.Name, prompt.Author)
-	
+
 	// Reconstruct the full content with front matter
 	fullContent := parser.FormatPromptFile(&prompt.PromptMeta, prompt.Content)
-	
+
 	// Create the gist
 	gistID, gistURL, err := client.CreateGist(ctx, gistName, prompt.Description, fullContent)
 	if err != nil {
-		return fmt.Errorf("failed to create gist: %w", err)
+		return errors.WrapWithMessage(err, "failed to create gist")
 	}
 
 	// Update the prompt with gist information
@@ -121,7 +122,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	// Update the index
 	fmt.Fprintln(cmd.OutOrStdout(), "Updating index...")
 	if err := updateIndex(ctx, client, username, prompt); err != nil {
-		return fmt.Errorf("failed to update index: %w", err)
+		return errors.WrapWithMessage(err, "failed to update index")
 	}
 
 	// Cache the prompt locally
@@ -162,8 +163,8 @@ func updateIndex(ctx context.Context, client *gist.Client, username string, prom
 	// Check if prompt already exists in index
 	found := false
 	for i, entry := range index.Entries {
-		if entry.GistID == prompt.GistID || 
-		   (entry.Name == prompt.Name && entry.Author == prompt.Author) {
+		if entry.GistID == prompt.GistID ||
+			(entry.Name == prompt.Name && entry.Author == prompt.Author) {
 			// Update existing entry
 			index.Entries[i] = prompt.ToIndexEntry()
 			found = true

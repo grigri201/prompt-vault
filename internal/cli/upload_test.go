@@ -102,28 +102,28 @@ Hello {name}!`
 			}
 
 			cmd := NewRootCmd()
-			
+
 			var out bytes.Buffer
 			cmd.SetOut(&out)
 			cmd.SetErr(&out)
-			
+
 			// Setup file if needed
 			args := tt.args
 			if tt.setupFile != nil {
 				file := tt.setupFile(t)
 				args = append(args, file)
 			}
-			
+
 			cmd.SetArgs(args)
-			
+
 			// Execute
 			err := cmd.Execute()
-			
+
 			// Check error
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			// Check output
 			output := out.String()
 			// For argument errors, check the error message
@@ -147,24 +147,24 @@ Hello {name}!`
 
 func TestUploadCommand_Help(t *testing.T) {
 	cmd := NewRootCmd()
-	
+
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetArgs([]string{"upload", "--help"})
-	
+
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	
+
 	output := out.String()
 	expectedStrings := []string{
 		"Upload a prompt template",
 		"YAML format",
 		"front matter",
 	}
-	
+
 	for _, expected := range expectedStrings {
 		if !strings.Contains(output, expected) {
 			t.Errorf("Help text missing %q", expected)

@@ -128,20 +128,20 @@ func TestListCommand(t *testing.T) {
 			}()
 
 			cmd := NewRootCmd()
-			
+
 			var out bytes.Buffer
 			cmd.SetOut(&out)
 			cmd.SetErr(&out)
 			cmd.SetArgs(tt.args)
-			
+
 			// Execute
 			err := cmd.Execute()
-			
+
 			// Check error
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			// Check output
 			output := out.String()
 			for _, want := range tt.wantOutput {
@@ -155,23 +155,23 @@ func TestListCommand(t *testing.T) {
 
 func TestListCommand_Help(t *testing.T) {
 	cmd := NewRootCmd()
-	
+
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetArgs([]string{"list", "--help"})
-	
+
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	
+
 	output := out.String()
 	expectedStrings := []string{
 		"List all available prompt templates",
 		"paginated table",
 	}
-	
+
 	for _, expected := range expectedStrings {
 		if !strings.Contains(output, expected) {
 			t.Errorf("Help text missing %q", expected)

@@ -147,20 +147,20 @@ func TestSyncCommand(t *testing.T) {
 
 			// Create command
 			cmd := NewRootCmd()
-			
+
 			var out bytes.Buffer
 			cmd.SetOut(&out)
 			cmd.SetErr(&out)
 			cmd.SetArgs(tt.args)
-			
+
 			// Execute
 			err := cmd.Execute()
-			
+
 			// Check error
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			// Check output
 			output := out.String()
 			for _, want := range tt.wantOutput {
@@ -182,17 +182,17 @@ func TestSyncCommand(t *testing.T) {
 
 func TestSyncCommand_Help(t *testing.T) {
 	cmd := NewRootCmd()
-	
+
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetArgs([]string{"sync", "--help"})
-	
+
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	
+
 	output := out.String()
 	expectedStrings := []string{
 		"Synchronize your local prompt cache with GitHub Gists",
@@ -200,7 +200,7 @@ func TestSyncCommand_Help(t *testing.T) {
 		"--verbose",
 		"Show detailed progress",
 	}
-	
+
 	for _, expected := range expectedStrings {
 		if !strings.Contains(output, expected) {
 			t.Errorf("Help text missing %q", expected)

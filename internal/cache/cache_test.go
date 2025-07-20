@@ -3,12 +3,44 @@ package cache
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/grigri201/prompt-vault/internal/models"
+	"github.com/grigri201/prompt-vault/internal/paths"
 )
+
+// createTestManager creates a Manager for testing with a specific cache path
+func createTestManager(tempDir string, subPath string) *Manager {
+	// Since PathManager always appends .cache/prompt-vault/prompts,
+	// we need to calculate the home directory that would result in our desired path
+	pm := paths.NewPathManagerWithHome(tempDir)
+	return NewManagerWithPathManager(pm)
+}
+
+// createTestManagerWithExactPath creates a Manager that uses exact paths for testing
+func createTestManagerWithExactPath(cachePath string) *Manager {
+	// Calculate the home directory that would result in the exact cache path
+	// by removing the .cache/prompt-vault/prompts suffix that PathManager adds
+	const suffix = ".cache/prompt-vault/prompts"
+	homeDir := cachePath
+
+	// If the path ends with the standard suffix, extract the home directory
+	if strings.HasSuffix(cachePath, suffix) {
+		homeDir = strings.TrimSuffix(cachePath, "/"+suffix)
+		homeDir = strings.TrimSuffix(homeDir, suffix) // Handle case without leading slash
+	} else {
+		// For custom paths, we need to adjust so that when PathManager adds the suffix,
+		// we get close to the desired path. This is a limitation of the current design.
+		// The best we can do is use the path as-is, knowing it will be modified.
+		homeDir = filepath.Dir(filepath.Dir(filepath.Dir(cachePath)))
+	}
+
+	pm := paths.NewPathManagerWithHome(homeDir)
+	return NewManagerWithPathManager(pm)
+}
 
 func TestGetCachePath(t *testing.T) {
 	// Save original HOME
@@ -30,11 +62,9 @@ func TestGetCachePath(t *testing.T) {
 func TestManager_InitializeCache(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
 
-	manager := &Manager{
-		cachePath: cachePath,
-	}
+	// Create manager for testing
+	manager := createTestManager(tempDir, "")
 
 	// Test initialization
 	err := manager.InitializeCache()
@@ -43,7 +73,9 @@ func TestManager_InitializeCache(t *testing.T) {
 	}
 
 	// Check if directory exists
-	info, err := os.Stat(cachePath)
+	// Get the actual cache path from the manager
+	actualCachePath := manager.GetCacheDir()
+	info, err := os.Stat(actualCachePath)
 	if err != nil {
 		t.Fatalf("Cache directory was not created: %v", err)
 	}
@@ -61,16 +93,15 @@ func TestManager_InitializeCache(t *testing.T) {
 func TestManager_InitializeCache_AlreadyExists(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
+
+	// Create manager and get its cache path
+	manager := createTestManager(tempDir, "")
+	cachePath := manager.GetCacheDir()
 
 	// Pre-create the directory
 	err := os.MkdirAll(cachePath, 0700)
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %v", err)
-	}
-
-	manager := &Manager{
-		cachePath: cachePath,
 	}
 
 	// Initialize should succeed even if directory exists
@@ -81,26 +112,22 @@ func TestManager_InitializeCache_AlreadyExists(t *testing.T) {
 }
 
 func TestManager_GetCacheDir(t *testing.T) {
-	cachePath := "/test/cache/path"
-	manager := &Manager{
-		cachePath: cachePath,
-	}
+	tempDir := t.TempDir()
+	manager := createTestManager(tempDir, "")
+	expectedPath := filepath.Join(tempDir, ".cache", "prompt-vault", "prompts")
 
 	result := manager.GetCacheDir()
-	if result != cachePath {
-		t.Errorf("GetCacheDir() = %s, want %s", result, cachePath)
+	if result != expectedPath {
+		t.Errorf("GetCacheDir() = %s, want %s", result, expectedPath)
 	}
 }
 
 func TestManager_GetIndexPath(t *testing.T) {
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
-	
-	manager := &Manager{
-		cachePath: cachePath,
-	}
+	manager := createTestManager(tempDir, "")
+	cachePath := manager.GetCacheDir()
 
-	expected := filepath.Join(filepath.Dir(cachePath), "index.json")
+	expected := filepath.Join(cachePath, "index.json")
 	actual := manager.GetIndexPath()
 
 	if actual != expected {
@@ -110,11 +137,8 @@ func TestManager_GetIndexPath(t *testing.T) {
 
 func TestManager_GetMetadataPath(t *testing.T) {
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
-	
-	manager := &Manager{
-		cachePath: cachePath,
-	}
+	manager := createTestManager(tempDir, "")
+	cachePath := manager.GetCacheDir()
 
 	expected := filepath.Join(filepath.Dir(cachePath), "metadata.json")
 	actual := manager.GetMetadataPath()
@@ -126,11 +150,8 @@ func TestManager_GetMetadataPath(t *testing.T) {
 
 func TestManager_GetPromptPath(t *testing.T) {
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
-	
-	manager := &Manager{
-		cachePath: cachePath,
-	}
+	manager := createTestManager(tempDir, "")
+	cachePath := manager.GetCacheDir()
 
 	gistID := "abc123def456"
 	expected := filepath.Join(cachePath, gistID+".yaml")
@@ -143,48 +164,57 @@ func TestManager_GetPromptPath(t *testing.T) {
 
 func TestNewManager(t *testing.T) {
 	manager := NewManager()
-	
+
 	if manager == nil {
 		t.Fatal("NewManager() returned nil")
 	}
 
 	expectedPath := GetCachePath()
-	if manager.cachePath != expectedPath {
-		t.Errorf("NewManager() cachePath = %s, want %s", manager.cachePath, expectedPath)
+	if manager.GetCacheDir() != expectedPath {
+		t.Errorf("NewManager() cache dir = %s, want %s", manager.GetCacheDir(), expectedPath)
 	}
 }
 
 func TestNewManagerWithPath(t *testing.T) {
-	customPath := "/custom/cache/path"
+	tempDir := t.TempDir()
+	customPath := filepath.Join(tempDir, ".cache", "prompt-vault", "prompts")
+	// NewManagerWithPath expects to extract home from the path
 	manager := NewManagerWithPath(customPath)
-	
+
 	if manager == nil {
 		t.Fatal("NewManagerWithPath() returned nil")
 	}
 
-	if manager.cachePath != customPath {
-		t.Errorf("NewManagerWithPath() cachePath = %s, want %s", manager.cachePath, customPath)
+	// The function should extract tempDir as home and recreate the path
+	expectedPath := filepath.Join(tempDir, ".cache", "prompt-vault", "prompts")
+	if manager.GetCacheDir() != expectedPath {
+		t.Errorf("NewManagerWithPath() cache dir = %s, want %s", manager.GetCacheDir(), expectedPath)
 	}
 }
 
 func TestManager_Clean(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	cacheDir := filepath.Join(tempDir, "cache")
-	cachePath := filepath.Join(cacheDir, "prompts")
 
-	// Create cache structure with some files
-	err := os.MkdirAll(cachePath, 0700)
+	// Create a PathManager with the test directory as home
+	pm := paths.NewPathManagerWithHome(tempDir)
+	manager := NewManagerWithPathManager(pm)
+
+	// Get the actual paths from the manager
+	cachePath := manager.GetCacheDir()
+
+	// Initialize to create the directory structure
+	err := manager.InitializeCache()
 	if err != nil {
-		t.Fatalf("Failed to create test directory: %v", err)
+		t.Fatalf("Failed to initialize cache: %v", err)
 	}
 
 	// Create test files
 	testFiles := []string{
 		filepath.Join(cachePath, "test1.yaml"),
 		filepath.Join(cachePath, "test2.yaml"),
-		filepath.Join(cacheDir, "index.json"),
-		filepath.Join(cacheDir, "metadata.json"),
+		manager.GetIndexPath(),
+		manager.GetMetadataPath(),
 	}
 
 	for _, file := range testFiles {
@@ -192,10 +222,6 @@ func TestManager_Clean(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create test file %s: %v", file, err)
 		}
-	}
-
-	manager := &Manager{
-		cachePath: cachePath,
 	}
 
 	// Clean cache
@@ -223,9 +249,9 @@ func TestManager_Clean(t *testing.T) {
 }
 
 func TestManager_Clean_NonExistentDirectory(t *testing.T) {
-	manager := &Manager{
-		cachePath: "/non/existent/path",
-	}
+	// Use a manager with non-existent path
+	pm := paths.NewPathManagerWithHome("/non/existent/home")
+	manager := NewManagerWithPathManager(pm)
 
 	// Clean should not error on non-existent directory
 	err := manager.Clean()
@@ -237,11 +263,9 @@ func TestManager_Clean_NonExistentDirectory(t *testing.T) {
 func TestManager_SaveAndGetPrompt(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
 
-	manager := &Manager{
-		cachePath: cachePath,
-	}
+	// Use createTestManager to handle path correctly
+	manager := createTestManager(tempDir, "")
 
 	// Initialize cache
 	err := manager.InitializeCache()
@@ -298,11 +322,9 @@ func TestManager_SaveAndGetPrompt(t *testing.T) {
 func TestManager_GetPrompt_NotExist(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
 
-	manager := &Manager{
-		cachePath: cachePath,
-	}
+	// Use createTestManager to handle path correctly
+	manager := createTestManager(tempDir, "")
 
 	// Try to get non-existent prompt
 	_, err := manager.GetPrompt("nonexistent")
@@ -314,11 +336,9 @@ func TestManager_GetPrompt_NotExist(t *testing.T) {
 func TestManager_SavePrompt_InvalidContent(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
 
-	manager := &Manager{
-		cachePath: cachePath,
-	}
+	// Use createTestManager to handle path correctly
+	manager := createTestManager(tempDir, "")
 
 	// Initialize cache
 	err := manager.InitializeCache()
@@ -348,11 +368,9 @@ func TestManager_SavePrompt_InvalidContent(t *testing.T) {
 func TestManager_SavePrompt_ConcurrentAccess(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
 
-	manager := &Manager{
-		cachePath: cachePath,
-	}
+	// Use createTestManager to handle path correctly
+	manager := createTestManager(tempDir, "")
 
 	// Initialize cache
 	err := manager.InitializeCache()
@@ -432,11 +450,9 @@ func TestManager_SavePrompt_ConcurrentAccess(t *testing.T) {
 func TestManager_GetPrompt_CorruptedFile(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
 
-	manager := &Manager{
-		cachePath: cachePath,
-	}
+	// Use createTestManager to handle path correctly
+	manager := createTestManager(tempDir, "")
 
 	// Initialize cache
 	err := manager.InitializeCache()
@@ -535,22 +551,22 @@ func TestManager_SaveIndex(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir := t.TempDir()
-			cachePath := filepath.Join(tempDir, "cache", "prompts")
-			m := &Manager{cachePath: cachePath}
-			
+			// Use createTestManager to handle path correctly
+			m := createTestManager(tempDir, "")
+
 			if err := m.InitializeCache(); err != nil {
 				t.Fatal(err)
 			}
-			
+
 			if tt.setup != nil {
 				tt.setup(t, m)
 			}
-			
+
 			err := m.SaveIndex(tt.index)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SaveIndex() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if err == nil && tt.index != nil {
 				// Verify file was created
 				indexFile := m.GetIndexPath()
@@ -625,22 +641,22 @@ func TestManager_GetIndex(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir := t.TempDir()
-			cachePath := filepath.Join(tempDir, "cache", "prompts")
-			m := &Manager{cachePath: cachePath}
-			
+			// Use createTestManager to handle path correctly
+			m := createTestManager(tempDir, "")
+
 			if err := m.InitializeCache(); err != nil {
 				t.Fatal(err)
 			}
-			
+
 			if tt.setup != nil {
 				tt.setup(t, m)
 			}
-			
+
 			got, err := m.GetIndex()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetIndex() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if !tt.wantErr && got != nil && tt.want != nil {
 				// Compare the indexes
 				if got.Username != tt.want.Username {
@@ -660,13 +676,13 @@ func TestManager_GetIndex(t *testing.T) {
 
 func TestManager_IndexAtomicUpdate(t *testing.T) {
 	tempDir := t.TempDir()
-	cachePath := filepath.Join(tempDir, "cache", "prompts")
-	m := &Manager{cachePath: cachePath}
-	
+	// Use createTestManager to handle path correctly
+	m := createTestManager(tempDir, "")
+
 	if err := m.InitializeCache(); err != nil {
 		t.Fatal(err)
 	}
-	
+
 	// Create initial index
 	initialIndex := &models.Index{
 		Username: "testuser",
@@ -681,15 +697,15 @@ func TestManager_IndexAtomicUpdate(t *testing.T) {
 		},
 		UpdatedAt: time.Now(),
 	}
-	
+
 	if err := m.SaveIndex(initialIndex); err != nil {
 		t.Fatal(err)
 	}
-	
+
 	// Simulate concurrent updates
 	done := make(chan bool)
 	errors := make(chan error, 10)
-	
+
 	for i := 0; i < 10; i++ {
 		go func(id int) {
 			index := &models.Index{
@@ -705,7 +721,7 @@ func TestManager_IndexAtomicUpdate(t *testing.T) {
 				},
 				UpdatedAt: time.Now(),
 			}
-			
+
 			err := m.SaveIndex(index)
 			if err != nil {
 				errors <- err
@@ -713,29 +729,29 @@ func TestManager_IndexAtomicUpdate(t *testing.T) {
 			done <- true
 		}(i)
 	}
-	
+
 	// Wait for all updates
 	for i := 0; i < 10; i++ {
 		<-done
 	}
-	
+
 	close(errors)
-	
+
 	// Check for errors
 	for err := range errors {
 		t.Errorf("Atomic update error: %v", err)
 	}
-	
+
 	// Verify final state is valid
 	finalIndex, err := m.GetIndex()
 	if err != nil {
 		t.Fatalf("Failed to get final index: %v", err)
 	}
-	
+
 	if finalIndex == nil {
 		t.Fatal("Final index is nil")
 	}
-	
+
 	if finalIndex.Username != "testuser" {
 		t.Errorf("Final index has incorrect username: %v", finalIndex.Username)
 	}

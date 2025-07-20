@@ -8,13 +8,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/grigri201/prompt-vault/internal/cache"
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/models"
 )
 
 // newDeleteCmd creates the delete command
 func newDeleteCmd() *cobra.Command {
 	var force bool
-	
+
 	cmd := &cobra.Command{
 		Use:     "delete <name>",
 		Aliases: []string{"del", "rm"},
@@ -26,16 +27,16 @@ This action requires confirmation and can only be performed on your own template
 			return runDeleteSimple(cmd, args[0], force)
 		},
 	}
-	
+
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
-	
+
 	return cmd
 }
 
 func runDeleteSimple(cmd *cobra.Command, promptName string, force bool) error {
 	// For now, implement a simplified version that only removes from local cache
 	// Full GitHub integration will be implemented later
-	
+
 	// Create cache manager
 	cachePath := getCachePathFunc()
 	cacheManager := cache.NewManagerWithPath(cachePath)
@@ -43,7 +44,7 @@ func runDeleteSimple(cmd *cobra.Command, promptName string, force bool) error {
 	// Get index from cache
 	index, err := cacheManager.GetIndex()
 	if err != nil {
-		return fmt.Errorf("failed to load index: %w", err)
+		return errors.WrapWithMessage(err, "failed to load index")
 	}
 
 	// Check if index is nil or empty
@@ -64,7 +65,7 @@ func runDeleteSimple(cmd *cobra.Command, promptName string, force bool) error {
 
 	if targetEntry == nil {
 		fmt.Fprintf(cmd.OutOrStderr(), "Error: Prompt '%s' not found.\n", promptName)
-		return fmt.Errorf("prompt not found")
+		return errors.NewValidationErrorMsg("delete", "prompt not found")
 	}
 
 	// For testing purposes, we'll check a mock authentication
@@ -73,19 +74,19 @@ func runDeleteSimple(cmd *cobra.Command, promptName string, force bool) error {
 	if targetEntry.Author != mockUsername {
 		fmt.Fprintf(cmd.OutOrStderr(), "Error: You can only delete your own prompts.\n")
 		fmt.Fprintf(cmd.OutOrStderr(), "This prompt belongs to: %s\n", targetEntry.Author)
-		return fmt.Errorf("permission denied")
+		return errors.NewAuthErrorMsg("delete", "permission denied")
 	}
 
 	// Confirm deletion unless force flag is set
 	if !force {
 		fmt.Fprintf(cmd.OutOrStdout(), "Are you sure you want to delete '%s'? (y/N): ", promptName)
-		
+
 		reader := bufio.NewReader(cmd.InOrStdin())
 		response, err := reader.ReadString('\n')
 		if err != nil {
-			return fmt.Errorf("failed to read confirmation: %w", err)
+			return errors.WrapWithMessage(err, "failed to read confirmation")
 		}
-		
+
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "y" && response != "yes" {
 			fmt.Fprintln(cmd.OutOrStdout(), "Deletion cancelled.")
@@ -98,7 +99,7 @@ func runDeleteSimple(cmd *cobra.Command, promptName string, force bool) error {
 
 	// Update local cache
 	if err := cacheManager.SaveIndex(index); err != nil {
-		return fmt.Errorf("failed to update cache: %w", err)
+		return errors.WrapWithMessage(err, "failed to update cache")
 	}
 
 	// Delete from local cache
@@ -109,6 +110,6 @@ func runDeleteSimple(cmd *cobra.Command, promptName string, force bool) error {
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Successfully deleted prompt '%s'.\n", promptName)
 	fmt.Fprintln(cmd.OutOrStdout(), "Note: This is a simplified version. GitHub sync not yet implemented.")
-	
+
 	return nil
 }

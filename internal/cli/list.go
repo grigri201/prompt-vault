@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/grigri201/prompt-vault/internal/cache"
+	"github.com/grigri201/prompt-vault/internal/errors"
 )
 
 // For testing
@@ -16,7 +17,7 @@ var getCachePathFunc = cache.GetCachePath
 // newListCmd creates the list command
 func newListCmd() *cobra.Command {
 	var page int
-	
+
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -28,9 +29,9 @@ category, and version.`,
 			return runList(cmd, page)
 		},
 	}
-	
+
 	cmd.Flags().IntVarP(&page, "page", "p", 1, "Page number to display")
-	
+
 	return cmd
 }
 
@@ -42,7 +43,7 @@ func runList(cmd *cobra.Command, page int) error {
 	// Get index from cache
 	index, err := cacheManager.GetIndex()
 	if err != nil {
-		return fmt.Errorf("failed to load index: %w", err)
+		return errors.WrapWithMessage(err, "failed to load index")
 	}
 
 	// Check if index is empty
@@ -56,7 +57,7 @@ func runList(cmd *cobra.Command, page int) error {
 	const pageSize = 20
 	totalItems := len(index.Entries)
 	totalPages := (totalItems + pageSize - 1) / pageSize
-	
+
 	// Validate page number
 	if page < 1 {
 		page = 1
@@ -64,7 +65,7 @@ func runList(cmd *cobra.Command, page int) error {
 	if page > totalPages {
 		page = totalPages
 	}
-	
+
 	// Calculate start and end indices
 	startIdx := (page - 1) * pageSize
 	endIdx := startIdx + pageSize
@@ -101,7 +102,7 @@ func runList(cmd *cobra.Command, page int) error {
 		fmt.Fprintln(cmd.OutOrStdout())
 		fmt.Fprintf(cmd.OutOrStdout(), "Page %d of %d (Showing %d-%d of %d)\n",
 			page, totalPages, startIdx+1, endIdx, totalItems)
-		
+
 		if page < totalPages {
 			fmt.Fprintf(cmd.OutOrStdout(), "Use 'pv list --page %d' to see the next page.\n", page+1)
 		}
@@ -110,7 +111,7 @@ func runList(cmd *cobra.Command, page int) error {
 	// Show last sync time
 	if !index.UpdatedAt.IsZero() {
 		fmt.Fprintln(cmd.OutOrStdout())
-		fmt.Fprintf(cmd.OutOrStdout(), "Last synced: %s\n", 
+		fmt.Fprintf(cmd.OutOrStdout(), "Last synced: %s\n",
 			index.UpdatedAt.Format(time.RFC3339))
 	}
 

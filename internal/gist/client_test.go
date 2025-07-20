@@ -78,7 +78,7 @@ func TestClient_ValidateToken(t *testing.T) {
 				w.Write([]byte(`{"message": "Bad credentials"}`))
 			},
 			wantErr:        true,
-			wantErrMessage: "invalid token",
+			wantErrMessage: "authentication failed",
 		},
 		{
 			name: "handles rate limit error",
@@ -88,7 +88,7 @@ func TestClient_ValidateToken(t *testing.T) {
 				w.Write([]byte(`{"message": "API rate limit exceeded"}`))
 			},
 			wantErr:        true,
-			wantErrMessage: "rate limit",
+			wantErrMessage: "network error",
 		},
 		{
 			name: "handles server error",
@@ -132,17 +132,17 @@ func TestClient_ValidateToken(t *testing.T) {
 			client.github.BaseURL, _ = client.github.BaseURL.Parse(server.URL + "/")
 
 			username, err := client.ValidateToken(context.Background())
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateToken() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
 				if !contains(err.Error(), tt.wantErrMessage) {
 					t.Errorf("ValidateToken() error = %v, want error containing %v", err, tt.wantErrMessage)
 				}
 			}
-			
+
 			if !tt.wantErr && username != tt.wantUsername {
 				t.Errorf("ValidateToken() username = %v, want %v", username, tt.wantUsername)
 			}
@@ -152,9 +152,9 @@ func TestClient_ValidateToken(t *testing.T) {
 
 func TestClient_IsRateLimitError(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupServer    func(w http.ResponseWriter, r *http.Request)
-		wantRateLimit  bool
+		name          string
+		setupServer   func(w http.ResponseWriter, r *http.Request)
+		wantRateLimit bool
 	}{
 		{
 			name: "detects rate limit error with header",
@@ -205,7 +205,7 @@ func TestClient_IsRateLimitError(t *testing.T) {
 
 			// Make a request that will fail
 			_, _, err := client.github.Users.Get(context.Background(), "")
-			
+
 			if err == nil {
 				t.Fatal("Expected error but got nil")
 			}
@@ -252,7 +252,7 @@ func TestClient_GetAPIError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &Client{}
 			apiErr := client.GetAPIError(tt.err)
-			
+
 			if tt.wantNil {
 				if apiErr != nil {
 					t.Errorf("GetAPIError() = %v, want nil", apiErr)
@@ -292,38 +292,38 @@ func TestClient_CreateGist(t *testing.T) {
 				if r.Method != "POST" {
 					t.Errorf("Unexpected method: %s", r.Method)
 				}
-				
+
 				// Verify request body
 				var reqBody map[string]interface{}
 				if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 					t.Errorf("Failed to decode request body: %v", err)
 				}
-				
+
 				// Check that gist is private
 				if public, ok := reqBody["public"].(bool); !ok || public {
 					t.Error("Gist should be private")
 				}
-				
+
 				// Check description
 				if desc, ok := reqBody["description"].(string); !ok || desc != "Example prompt template" {
 					t.Errorf("Unexpected description: %v", desc)
 				}
-				
+
 				// Check files
 				files, ok := reqBody["files"].(map[string]interface{})
 				if !ok {
 					t.Error("Missing files in request")
 				}
-				
+
 				file, ok := files["testuser-example.yaml"].(map[string]interface{})
 				if !ok {
 					t.Error("Missing expected file in request")
 				}
-				
+
 				if content, ok := file["content"].(string); !ok || content != "Hello {name}!" {
 					t.Errorf("Unexpected file content: %v", content)
 				}
-				
+
 				w.WriteHeader(http.StatusCreated)
 				w.Write([]byte(`{
 					"id": "abc123def456",
@@ -341,19 +341,19 @@ func TestClient_CreateGist(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name:        "handles empty gist name",
-			gistName:    "",
-			description: "Test",
-			content:     "Test",
-			wantErr:     true,
+			name:           "handles empty gist name",
+			gistName:       "",
+			description:    "Test",
+			content:        "Test",
+			wantErr:        true,
 			wantErrMessage: "gist name is required",
 		},
 		{
-			name:        "handles empty content",
-			gistName:    "test",
-			description: "Test",
-			content:     "",
-			wantErr:     true,
+			name:           "handles empty content",
+			gistName:       "test",
+			description:    "Test",
+			content:        "",
+			wantErr:        true,
 			wantErrMessage: "content is required",
 		},
 		{
@@ -365,7 +365,7 @@ func TestClient_CreateGist(t *testing.T) {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(`{"message": "Validation Failed"}`))
 			},
-			wantErr:     true,
+			wantErr:        true,
 			wantErrMessage: "failed to create gist",
 		},
 		{
@@ -378,8 +378,8 @@ func TestClient_CreateGist(t *testing.T) {
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte(`{"message": "API rate limit exceeded"}`))
 			},
-			wantErr:     true,
-			wantErrMessage: "rate limit",
+			wantErr:        true,
+			wantErrMessage: "network error",
 		},
 	}
 
@@ -394,23 +394,23 @@ func TestClient_CreateGist(t *testing.T) {
 			client := &Client{
 				github: github.NewClient(nil).WithAuthToken("test-token"),
 			}
-			
+
 			if server != nil {
 				client.github.BaseURL, _ = client.github.BaseURL.Parse(server.URL + "/")
 			}
 
 			gistID, url, err := client.CreateGist(context.Background(), tt.gistName, tt.description, tt.content)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateGist() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
 				if !contains(err.Error(), tt.wantErrMessage) {
 					t.Errorf("CreateGist() error = %v, want error containing %v", err, tt.wantErrMessage)
 				}
 			}
-			
+
 			if !tt.wantErr {
 				if gistID != tt.wantGistID {
 					t.Errorf("CreateGist() gistID = %v, want %v", gistID, tt.wantGistID)
@@ -448,33 +448,33 @@ func TestClient_UpdateGist(t *testing.T) {
 				if r.Method != "PATCH" {
 					t.Errorf("Unexpected method: %s", r.Method)
 				}
-				
+
 				// Verify request body
 				var reqBody map[string]interface{}
 				if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 					t.Errorf("Failed to decode request body: %v", err)
 				}
-				
+
 				// Check description
 				if desc, ok := reqBody["description"].(string); !ok || desc != "Updated prompt template" {
 					t.Errorf("Unexpected description: %v", desc)
 				}
-				
+
 				// Check files
 				files, ok := reqBody["files"].(map[string]interface{})
 				if !ok {
 					t.Error("Missing files in request")
 				}
-				
+
 				file, ok := files["testuser-example.yaml"].(map[string]interface{})
 				if !ok {
 					t.Error("Missing expected file in request")
 				}
-				
+
 				if content, ok := file["content"].(string); !ok || content != "Hello {name}, welcome!" {
 					t.Errorf("Unexpected file content: %v", content)
 				}
-				
+
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{
 					"id": "abc123def456",
@@ -491,12 +491,12 @@ func TestClient_UpdateGist(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:        "handles empty gist ID",
-			gistID:      "",
-			gistName:    "test",
-			description: "Test",
-			content:     "Test",
-			wantErr:     true,
+			name:           "handles empty gist ID",
+			gistID:         "",
+			gistName:       "test",
+			description:    "Test",
+			content:        "Test",
+			wantErr:        true,
 			wantErrMessage: "gist ID is required",
 		},
 		{
@@ -509,7 +509,7 @@ func TestClient_UpdateGist(t *testing.T) {
 				w.WriteHeader(http.StatusNotFound)
 				w.Write([]byte(`{"message": "Not Found"}`))
 			},
-			wantErr:     true,
+			wantErr:        true,
 			wantErrMessage: "gist not found",
 		},
 		{
@@ -522,8 +522,8 @@ func TestClient_UpdateGist(t *testing.T) {
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte(`{"message": "Must have admin rights to Repository"}`))
 			},
-			wantErr:     true,
-			wantErrMessage: "permission denied",
+			wantErr:        true,
+			wantErrMessage: "authentication failed",
 		},
 	}
 
@@ -538,23 +538,23 @@ func TestClient_UpdateGist(t *testing.T) {
 			client := &Client{
 				github: github.NewClient(nil).WithAuthToken("test-token"),
 			}
-			
+
 			if server != nil {
 				client.github.BaseURL, _ = client.github.BaseURL.Parse(server.URL + "/")
 			}
 
 			url, err := client.UpdateGist(context.Background(), tt.gistID, tt.gistName, tt.description, tt.content)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateGist() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
 				if !contains(err.Error(), tt.wantErrMessage) {
 					t.Errorf("UpdateGist() error = %v, want error containing %v", err, tt.wantErrMessage)
 				}
 			}
-			
+
 			if !tt.wantErr {
 				if url != tt.wantURL {
 					t.Errorf("UpdateGist() url = %v, want %v", url, tt.wantURL)
@@ -583,7 +583,7 @@ func TestClient_GetGist(t *testing.T) {
 				if r.Method != "GET" {
 					t.Errorf("Unexpected method: %s", r.Method)
 				}
-				
+
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{
 					"id": "abc123def456",
@@ -611,9 +611,9 @@ func TestClient_GetGist(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "handles empty gist ID",
-			gistID:  "",
-			wantErr: true,
+			name:           "handles empty gist ID",
+			gistID:         "",
+			wantErr:        true,
 			wantErrMessage: "gist ID is required",
 		},
 		{
@@ -635,7 +635,7 @@ func TestClient_GetGist(t *testing.T) {
 				w.Write([]byte(`{"message": "API rate limit exceeded"}`))
 			},
 			wantErr:        true,
-			wantErrMessage: "rate limit",
+			wantErrMessage: "network error",
 		},
 	}
 
@@ -650,23 +650,23 @@ func TestClient_GetGist(t *testing.T) {
 			client := &Client{
 				github: github.NewClient(nil).WithAuthToken("test-token"),
 			}
-			
+
 			if server != nil {
 				client.github.BaseURL, _ = client.github.BaseURL.Parse(server.URL + "/")
 			}
 
 			gist, err := client.GetGist(context.Background(), tt.gistID)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetGist() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
 				if !contains(err.Error(), tt.wantErrMessage) {
 					t.Errorf("GetGist() error = %v, want error containing %v", err, tt.wantErrMessage)
 				}
 			}
-			
+
 			if !tt.wantErr && gist != nil && tt.wantGist != nil {
 				if gist.GetID() != tt.wantGist.GetID() {
 					t.Errorf("GetGist() ID = %v, want %v", gist.GetID(), tt.wantGist.GetID())
@@ -697,15 +697,15 @@ func TestClient_DeleteGist(t *testing.T) {
 				if r.Method != "DELETE" {
 					t.Errorf("Unexpected method: %s", r.Method)
 				}
-				
+
 				w.WriteHeader(http.StatusNoContent)
 			},
 			wantErr: false,
 		},
 		{
-			name:    "handles empty gist ID",
-			gistID:  "",
-			wantErr: true,
+			name:           "handles empty gist ID",
+			gistID:         "",
+			wantErr:        true,
 			wantErrMessage: "gist ID is required",
 		},
 		{
@@ -726,7 +726,7 @@ func TestClient_DeleteGist(t *testing.T) {
 				w.Write([]byte(`{"message": "Must have admin rights to Repository"}`))
 			},
 			wantErr:        true,
-			wantErrMessage: "permission denied",
+			wantErrMessage: "authentication failed",
 		},
 		{
 			name:   "handles rate limit",
@@ -737,7 +737,7 @@ func TestClient_DeleteGist(t *testing.T) {
 				w.Write([]byte(`{"message": "API rate limit exceeded"}`))
 			},
 			wantErr:        true,
-			wantErrMessage: "rate limit",
+			wantErrMessage: "network error",
 		},
 	}
 
@@ -752,17 +752,17 @@ func TestClient_DeleteGist(t *testing.T) {
 			client := &Client{
 				github: github.NewClient(nil).WithAuthToken("test-token"),
 			}
-			
+
 			if server != nil {
 				client.github.BaseURL, _ = client.github.BaseURL.Parse(server.URL + "/")
 			}
 
 			err := client.DeleteGist(context.Background(), tt.gistID)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteGist() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
 				if !contains(err.Error(), tt.wantErrMessage) {
 					t.Errorf("DeleteGist() error = %v, want error containing %v", err, tt.wantErrMessage)
@@ -815,37 +815,37 @@ func TestClient_UpdateIndexGist(t *testing.T) {
 							if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 								t.Errorf("Failed to decode request body: %v", err)
 							}
-							
+
 							// Verify gist properties
 							if desc, ok := reqBody["description"].(string); !ok || desc != "Prompt Vault Index" {
 								t.Errorf("Unexpected description: %v", desc)
 							}
-							
+
 							files, ok := reqBody["files"].(map[string]interface{})
 							if !ok {
 								t.Error("Missing files in request")
 							}
-							
+
 							file, ok := files["testuser-promptvault-index.json"].(map[string]interface{})
 							if !ok {
 								t.Error("Missing index file in request")
 							}
-							
+
 							// Verify JSON content
 							content, ok := file["content"].(string)
 							if !ok {
 								t.Error("Missing content in file")
 							}
-							
+
 							var parsedIndex models.Index
 							if err := json.Unmarshal([]byte(content), &parsedIndex); err != nil {
 								t.Errorf("Invalid JSON content: %v", err)
 							}
-							
+
 							if parsedIndex.Username != "testuser" {
 								t.Errorf("Unexpected username in index: %v", parsedIndex.Username)
 							}
-							
+
 							w.WriteHeader(http.StatusCreated)
 							w.Write([]byte(`{
 								"id": "newindex123",
@@ -900,28 +900,28 @@ func TestClient_UpdateIndexGist(t *testing.T) {
 							if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 								t.Errorf("Failed to decode request body: %v", err)
 							}
-							
+
 							files, ok := reqBody["files"].(map[string]interface{})
 							if !ok {
 								t.Error("Missing files in request")
 							}
-							
+
 							file, ok := files["testuser-promptvault-index.json"].(map[string]interface{})
 							if !ok {
 								t.Error("Missing index file in request")
 							}
-							
+
 							// Verify JSON content
 							content, ok := file["content"].(string)
 							if !ok {
 								t.Error("Missing content in file")
 							}
-							
+
 							var parsedIndex models.Index
 							if err := json.Unmarshal([]byte(content), &parsedIndex); err != nil {
 								t.Errorf("Invalid JSON content: %v", err)
 							}
-							
+
 							w.WriteHeader(http.StatusOK)
 							w.Write([]byte(`{
 								"id": "existingindex456",
@@ -947,10 +947,10 @@ func TestClient_UpdateIndexGist(t *testing.T) {
 			wantErrMessage: "username is required",
 		},
 		{
-			name:     "handles nil index",
-			username: "testuser",
-			index:    nil,
-			wantErr:  true,
+			name:           "handles nil index",
+			username:       "testuser",
+			index:          nil,
+			wantErr:        true,
 			wantErrMessage: "index is required",
 		},
 		{
@@ -983,23 +983,23 @@ func TestClient_UpdateIndexGist(t *testing.T) {
 			client := &Client{
 				github: github.NewClient(nil).WithAuthToken("test-token"),
 			}
-			
+
 			if server != nil {
 				client.github.BaseURL, _ = client.github.BaseURL.Parse(server.URL + "/")
 			}
 
 			gistID, err := client.UpdateIndexGist(context.Background(), tt.username, tt.index)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateIndexGist() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if tt.wantErr && tt.wantErrMessage != "" && err != nil {
 				if !contains(err.Error(), tt.wantErrMessage) {
 					t.Errorf("UpdateIndexGist() error = %v, want error containing %v", err, tt.wantErrMessage)
 				}
 			}
-			
+
 			if !tt.wantErr && gistID != tt.wantGistID {
 				t.Errorf("UpdateIndexGist() gistID = %v, want %v", gistID, tt.wantGistID)
 			}
@@ -1009,7 +1009,7 @@ func TestClient_UpdateIndexGist(t *testing.T) {
 
 // Helper function for string contains check
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || 
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr) != -1))
 }
 

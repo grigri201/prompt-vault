@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,88 +10,130 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/grigri201/prompt-vault/internal/managers"
 	"github.com/grigri201/prompt-vault/internal/models"
 	"github.com/grigri201/prompt-vault/internal/parser"
+	"github.com/grigri201/prompt-vault/internal/paths"
 	"gopkg.in/yaml.v3"
 )
 
 // Manager handles cache operations for prompt templates
 type Manager struct {
-	cachePath string
-	mu        sync.RWMutex // Mutex for concurrent access
+	managers.BaseManager
+	pathManager *paths.PathManager
+	mu          sync.RWMutex // Mutex for concurrent access
 }
 
 // NewManager creates a new cache manager with default path
 func NewManager() *Manager {
+	pm := paths.NewPathManager()
 	return &Manager{
-		cachePath: GetCachePath(),
+		pathManager: pm,
 	}
 }
 
 // NewManagerWithPath creates a new cache manager with custom path
 func NewManagerWithPath(path string) *Manager {
+	// Extract home directory from the path to create appropriate PathManager
+	// This maintains backward compatibility
+	homeDir := extractHomeDir(path)
+	pm := paths.NewPathManagerWithHome(homeDir)
 	return &Manager{
-		cachePath: path,
+		pathManager: pm,
 	}
+}
+
+// NewManagerWithPathManager creates a new cache manager with a path manager
+func NewManagerWithPathManager(pm *paths.PathManager) *Manager {
+	return &Manager{
+		pathManager: pm,
+	}
+}
+
+// extractHomeDir extracts the home directory from a cache path
+// For backward compatibility with existing NewManagerWithPath usage
+func extractHomeDir(cachePath string) string {
+	// If path contains .cache/prompt-vault/prompts, extract the base
+	const cacheSubPath = ".cache/prompt-vault/prompts"
+	if idx := strings.Index(cachePath, cacheSubPath); idx > 0 {
+		return cachePath[:idx-1] // -1 to remove the trailing slash
+	}
+	// Otherwise, assume it's a custom path and use parent directory
+	return filepath.Dir(filepath.Dir(filepath.Dir(cachePath)))
 }
 
 // GetCachePath returns the default cache directory path
 func GetCachePath() string {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		// Fallback to current directory if home directory is not available
-		homeDir = "."
+	pm := paths.NewPathManager()
+	return pm.GetCachePath()
+}
+
+// Initialize implements managers.Manager interface
+func (m *Manager) Initialize(ctx context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if err := m.pathManager.EnsureCacheDir(); err != nil {
+		return fmt.Errorf("failed to initialize cache: %w", err)
 	}
-	return filepath.Join(homeDir, ".cache", "prompt-vault", "prompts")
+
+	m.SetInitialized(true)
+	return nil
+}
+
+// Cleanup implements managers.Manager interface
+func (m *Manager) Cleanup() error {
+	// Currently no cleanup needed for cache manager
+	m.SetInitialized(false)
+	return nil
 }
 
 // InitializeCache creates the cache directory structure if it doesn't exist
+// Deprecated: Use Initialize(ctx) instead
 func (m *Manager) InitializeCache() error {
-	// Create cache directory with secure permissions
-	if err := os.MkdirAll(m.cachePath, 0700); err != nil {
-		return fmt.Errorf("failed to create cache directory: %w", err)
-	}
-	return nil
+	return m.Initialize(context.Background())
 }
 
 // GetCacheDir returns the cache directory path
 func (m *Manager) GetCacheDir() string {
-	return m.cachePath
+	return m.pathManager.GetCachePath()
 }
 
 // GetIndexPath returns the path to the index.json file
 func (m *Manager) GetIndexPath() string {
-	// Index is stored in parent directory of prompts
-	return filepath.Join(filepath.Dir(m.cachePath), "index.json")
+	return m.pathManager.GetIndexPath()
 }
 
 // GetMetadataPath returns the path to the metadata.json file
 func (m *Manager) GetMetadataPath() string {
 	// Metadata is stored in parent directory of prompts
-	return filepath.Join(filepath.Dir(m.cachePath), "metadata.json")
+	return filepath.Join(filepath.Dir(m.pathManager.GetCachePath()), "metadata.json")
 }
 
 // GetPromptPath returns the path for a cached prompt file
 func (m *Manager) GetPromptPath(gistID string) string {
-	return filepath.Join(m.cachePath, gistID+".yaml")
+	// pathManager.GetPromptPath expects ID without extension and adds .md
+	// but cache uses .yaml extension
+	return filepath.Join(m.pathManager.GetCachePath(), gistID+".yaml")
 }
 
 // Clean removes all cached files but keeps the directory structure
 func (m *Manager) Clean() error {
 	// Remove index.json if it exists
 	indexPath := m.GetIndexPath()
-	if err := os.Remove(indexPath); err != nil && !os.IsNotExist(err) {
+	if err := m.pathManager.RemoveFile(indexPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove index file: %w", err)
 	}
 
 	// Remove metadata.json if it exists
 	metadataPath := m.GetMetadataPath()
-	if err := os.Remove(metadataPath); err != nil && !os.IsNotExist(err) {
+	if err := m.pathManager.RemoveFile(metadataPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove metadata file: %w", err)
 	}
 
 	// Remove all files in prompts directory
-	entries, err := os.ReadDir(m.cachePath)
+	cacheDir := m.pathManager.GetCachePath()
+	entries, err := os.ReadDir(cacheDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Directory doesn't exist, nothing to clean
@@ -101,8 +144,8 @@ func (m *Manager) Clean() error {
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
-			path := filepath.Join(m.cachePath, entry.Name())
-			if err := os.Remove(path); err != nil {
+			path := filepath.Join(cacheDir, entry.Name())
+			if err := m.pathManager.RemoveFile(path); err != nil {
 				return fmt.Errorf("failed to remove cached file %s: %w", entry.Name(), err)
 			}
 		}
@@ -116,7 +159,7 @@ func (m *Manager) SavePrompt(prompt *models.Prompt) error {
 	if prompt == nil {
 		return fmt.Errorf("prompt is nil")
 	}
-	
+
 	if prompt.GistID == "" {
 		return fmt.Errorf("prompt GistID is empty")
 	}
@@ -147,8 +190,8 @@ func (m *Manager) SavePrompt(prompt *models.Prompt) error {
 	// Get prompt file path
 	promptPath := m.GetPromptPath(prompt.GistID)
 
-	// Write to file with secure permissions
-	if err := os.WriteFile(promptPath, []byte(frontMatter), 0600); err != nil {
+	// Write to file atomically with secure permissions
+	if err := m.pathManager.AtomicWrite(promptPath, []byte(frontMatter), 0600); err != nil {
 		return fmt.Errorf("failed to save prompt: %w", err)
 	}
 
@@ -165,7 +208,7 @@ func (m *Manager) GetPrompt(gistID string) (*models.Prompt, error) {
 	promptPath := m.GetPromptPath(gistID)
 
 	// Read file content
-	content, err := os.ReadFile(promptPath)
+	content, err := m.pathManager.ReadFile(promptPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("prompt not found in cache")
@@ -190,7 +233,7 @@ func (m *Manager) SaveIndex(index *models.Index) error {
 	if index == nil {
 		return fmt.Errorf("index is nil")
 	}
-	
+
 	if index.Username == "" {
 		return fmt.Errorf("index username is empty")
 	}
@@ -208,17 +251,8 @@ func (m *Manager) SaveIndex(index *models.Index) error {
 		return fmt.Errorf("failed to marshal index: %w", err)
 	}
 
-	// Write to file atomically to prevent corruption
-	// First write to temp file
-	tempPath := indexPath + ".tmp"
-	if err := os.WriteFile(tempPath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write temp index file: %w", err)
-	}
-
-	// Rename temp file to final path (atomic on most filesystems)
-	if err := os.Rename(tempPath, indexPath); err != nil {
-		// Clean up temp file on error
-		os.Remove(tempPath)
+	// Write to file atomically using pathManager
+	if err := m.pathManager.AtomicWrite(indexPath, data, 0600); err != nil {
 		return fmt.Errorf("failed to save index file: %w", err)
 	}
 
@@ -235,7 +269,7 @@ func (m *Manager) GetIndex() (*models.Index, error) {
 	indexPath := m.GetIndexPath()
 
 	// Read file content
-	data, err := os.ReadFile(indexPath)
+	data, err := m.pathManager.ReadFile(indexPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Index doesn't exist yet, return nil
@@ -262,19 +296,19 @@ func (m *Manager) GetIndex() (*models.Index, error) {
 func generateSafeFilename(name string) string {
 	// Replace spaces with hyphens
 	name = strings.ReplaceAll(name, " ", "-")
-	
+
 	// Remove or replace unsafe characters
 	re := regexp.MustCompile(`[^a-zA-Z0-9\-_]`)
 	name = re.ReplaceAllString(name, "")
-	
+
 	// Convert to lowercase
 	name = strings.ToLower(name)
-	
+
 	// Limit length
 	if len(name) > 100 {
 		name = name[:100]
 	}
-	
+
 	return name
 }
 
@@ -285,10 +319,10 @@ func (m *Manager) DeletePrompt(name string) error {
 
 	// Generate safe filename
 	safeFilename := generateSafeFilename(name)
-	promptPath := filepath.Join(m.cachePath, safeFilename+".yaml")
+	promptPath := filepath.Join(m.pathManager.GetCachePath(), safeFilename+".yaml")
 
 	// Remove the file
-	if err := os.Remove(promptPath); err != nil {
+	if err := m.pathManager.RemoveFile(promptPath); err != nil {
 		if os.IsNotExist(err) {
 			// File doesn't exist, not an error
 			return nil

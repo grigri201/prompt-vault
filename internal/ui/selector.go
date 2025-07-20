@@ -11,13 +11,13 @@ import (
 
 // SelectorModel represents an interactive prompt selector
 type SelectorModel struct {
-	Items         []string
-	Selected      int
-	Input         string
-	Confirmed     bool
-	ShowError     bool
-	ErrorMessage  string
-	MaxSelection  int
+	Items        []string
+	Selected     int
+	Input        string
+	Confirmed    bool
+	ShowError    bool
+	ErrorMessage string
+	MaxSelection int
 }
 
 // NewSelector creates a new selector model
@@ -52,14 +52,14 @@ func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.ErrorMessage = "Please enter a valid number"
 					return m, nil
 				}
-				
+
 				// Check if number is in valid range
 				if num < 1 || num > m.MaxSelection {
 					m.ShowError = true
 					m.ErrorMessage = fmt.Sprintf("Please enter a number between 1 and %d", m.MaxSelection)
 					return m, nil
 				}
-				
+
 				// Valid selection
 				m.Selected = num - 1 // Convert to 0-based index
 				m.Confirmed = true
@@ -103,7 +103,7 @@ func (m SelectorModel) View() string {
 	for i, item := range displayItems {
 		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, item))
 	}
-	
+
 	if len(m.Items) > 10 {
 		b.WriteString(fmt.Sprintf("... and %d more\n", len(m.Items)-10))
 	}
@@ -113,11 +113,11 @@ func (m SelectorModel) View() string {
 	// Input prompt
 	b.WriteString("Enter selection (1-")
 	b.WriteString(fmt.Sprintf("%d): ", m.MaxSelection))
-	
+
 	// Show current input
 	inputStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("86"))
 	b.WriteString(inputStyle.Render(m.Input))
-	
+
 	// Cursor
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("205")).

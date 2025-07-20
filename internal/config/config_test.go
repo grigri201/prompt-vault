@@ -118,11 +118,11 @@ func TestConfig_SaveAndLoad(t *testing.T) {
 func TestConfig_LoadFromFile_NotExist(t *testing.T) {
 	config := &Config{}
 	err := config.LoadFromFile("/nonexistent/path/config.yaml")
-	
+
 	if err == nil {
 		t.Error("LoadFromFile() should return error for non-existent file")
 	}
-	
+
 	if !os.IsNotExist(err) {
 		t.Errorf("LoadFromFile() should return os.IsNotExist error, got %v", err)
 	}
@@ -130,7 +130,7 @@ func TestConfig_LoadFromFile_NotExist(t *testing.T) {
 
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
-	
+
 	if config.Token != "" {
 		t.Error("DefaultConfig() should have empty token")
 	}
@@ -167,12 +167,10 @@ func TestConfig_Save_CreateDirectory(t *testing.T) {
 func TestManager_GetConfig(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	configPath := filepath.Join(tempDir, "config.yaml")
+	configPath := filepath.Join(tempDir, ".config", "prompt-vault", "config.yaml")
 
 	// Create manager with test path
-	manager := &Manager{
-		configPath: configPath,
-	}
+	manager := NewManagerWithPath(configPath)
 
 	// First call should create default config
 	config, err := manager.GetConfig()
@@ -189,15 +187,14 @@ func TestManager_GetConfig(t *testing.T) {
 		Token:    "ghp_testtoken123",
 		Username: "john",
 	}
-	err = testConfig.SaveToFile(configPath)
+	// Use the manager to save the config properly
+	err = manager.SaveConfig(&testConfig)
 	if err != nil {
-		t.Fatalf("SaveToFile() error = %v", err)
+		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
 	// Create new manager to test loading
-	manager2 := &Manager{
-		configPath: configPath,
-	}
+	manager2 := NewManagerWithPath(configPath)
 
 	// Should load the saved config
 	config2, err := manager2.GetConfig()
@@ -213,11 +210,9 @@ func TestManager_GetConfig(t *testing.T) {
 func TestManager_SaveConfig(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	configPath := filepath.Join(tempDir, "config.yaml")
+	configPath := filepath.Join(tempDir, ".config", "prompt-vault", "config.yaml")
 
-	manager := &Manager{
-		configPath: configPath,
-	}
+	manager := NewManagerWithPath(configPath)
 
 	config := &Config{
 		Token:    "ghp_testtoken123",
@@ -229,11 +224,11 @@ func TestManager_SaveConfig(t *testing.T) {
 		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
-	// Verify the config was saved
-	loaded := &Config{}
-	err = loaded.LoadFromFile(configPath)
+	// Verify the config was saved by creating a new manager
+	manager2 := NewManagerWithPath(configPath)
+	loaded, err := manager2.GetConfig()
 	if err != nil {
-		t.Fatalf("LoadFromFile() error = %v", err)
+		t.Fatalf("GetConfig() error = %v", err)
 	}
 
 	if loaded.Token != config.Token {
@@ -244,24 +239,22 @@ func TestManager_SaveConfig(t *testing.T) {
 func TestManager_UpdateLastSync(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	configPath := filepath.Join(tempDir, "config.yaml")
+	configPath := filepath.Join(tempDir, ".config", "prompt-vault", "config.yaml")
 
-	// Create initial config
+	// Create manager
+	manager := NewManagerWithPath(configPath)
+
+	// Create and save initial config
 	initialConfig := &Config{
 		Token:    "ghp_testtoken123",
 		Username: "john",
 		LastSync: time.Time{}, // Zero time
 	}
-	
-	// Save initial config
-	err := initialConfig.SaveToFile(configPath)
-	if err != nil {
-		t.Fatalf("SaveToFile() error = %v", err)
-	}
 
-	// Create manager
-	manager := &Manager{
-		configPath: configPath,
+	// Save initial config through manager
+	err := manager.SaveConfig(initialConfig)
+	if err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
 	}
 
 	// Record time before update
@@ -273,11 +266,10 @@ func TestManager_UpdateLastSync(t *testing.T) {
 		t.Fatalf("UpdateLastSync() error = %v", err)
 	}
 
-	// Load config to verify
-	updatedConfig := &Config{}
-	err = updatedConfig.LoadFromFile(configPath)
+	// Get updated config through manager
+	updatedConfig, err := manager.GetConfig()
 	if err != nil {
-		t.Fatalf("LoadFromFile() error = %v", err)
+		t.Fatalf("GetConfig() error = %v", err)
 	}
 
 	// Check that LastSync was updated
@@ -300,26 +292,59 @@ func TestManager_UpdateLastSync(t *testing.T) {
 
 func TestNewManager(t *testing.T) {
 	manager := NewManager()
-	
-	expectedPath := GetConfigPath()
-	if manager.configPath != expectedPath {
-		t.Errorf("NewManager() configPath = %s, want %s", manager.configPath, expectedPath)
+
+	// Since Manager no longer exposes configPath directly,
+	// we test by trying to save and load a config
+	testConfig := &Config{
+		Token:    "test_token",
+		Username: "test_user",
 	}
-	
-	if manager.config != nil {
-		t.Error("NewManager() should not have config loaded initially")
+
+	// Save config
+	err := manager.SaveConfig(testConfig)
+	if err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
+	}
+
+	// Create new manager and load config
+	manager2 := NewManager()
+	loadedConfig, err := manager2.GetConfig()
+	if err != nil {
+		t.Fatalf("GetConfig() error = %v", err)
+	}
+
+	// Verify the config was saved to the default path
+	if loadedConfig.Token != testConfig.Token {
+		t.Errorf("Loaded config Token = %s, want %s", loadedConfig.Token, testConfig.Token)
 	}
 }
 
 func TestNewManagerWithPath(t *testing.T) {
-	customPath := "/custom/path/config.yaml"
+	// Create temporary directory for test
+	tempDir := t.TempDir()
+	customPath := filepath.Join(tempDir, ".config", "prompt-vault", "config.yaml")
 	manager := NewManagerWithPath(customPath)
-	
-	if manager.configPath != customPath {
-		t.Errorf("NewManagerWithPath() configPath = %s, want %s", manager.configPath, customPath)
+
+	// Test by saving and loading config
+	testConfig := &Config{
+		Token:    "test_token",
+		Username: "test_user",
 	}
-	
-	if manager.config != nil {
-		t.Error("NewManagerWithPath() should not have config loaded initially")
+
+	// Save config
+	err := manager.SaveConfig(testConfig)
+	if err != nil {
+		t.Fatalf("SaveConfig() error = %v", err)
+	}
+
+	// Verify the config was saved by using another manager with the same path
+	manager2 := NewManagerWithPath(customPath)
+	loadedConfig, err := manager2.GetConfig()
+	if err != nil {
+		t.Fatalf("GetConfig() error = %v", err)
+	}
+
+	if loadedConfig.Token != testConfig.Token {
+		t.Errorf("Loaded config Token = %s, want %s", loadedConfig.Token, testConfig.Token)
 	}
 }

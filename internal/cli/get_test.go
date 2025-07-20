@@ -84,11 +84,11 @@ func TestGetCommand(t *testing.T) {
 							UpdatedAt:   time.Now(),
 						},
 						{
-							Name:        "Code Review",
-							Author:      "testuser",
-							Category:    "development",
-							Version:     "1.0",
-							UpdatedAt:   time.Now(),
+							Name:      "Code Review",
+							Author:    "testuser",
+							Category:  "development",
+							Version:   "1.0",
+							UpdatedAt: time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
@@ -334,20 +334,20 @@ func TestGetCommand(t *testing.T) {
 			}()
 
 			cmd := NewRootCmd()
-			
+
 			var out bytes.Buffer
 			cmd.SetOut(&out)
 			cmd.SetErr(&out)
 			cmd.SetArgs(tt.args)
-			
+
 			// Execute
 			err := cmd.Execute()
-			
+
 			// Check error
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			// Check output
 			output := out.String()
 			for _, want := range tt.wantOutput {
@@ -361,23 +361,23 @@ func TestGetCommand(t *testing.T) {
 
 func TestGetCommand_Help(t *testing.T) {
 	cmd := NewRootCmd()
-	
+
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetArgs([]string{"get", "--help"})
-	
+
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	
+
 	output := out.String()
 	expectedStrings := []string{
 		"Search for prompt templates by keyword across names, categories",
 		"tags, authors, and descriptions",
 	}
-	
+
 	for _, expected := range expectedStrings {
 		if !strings.Contains(output, expected) {
 			t.Errorf("Help text missing %q", expected)

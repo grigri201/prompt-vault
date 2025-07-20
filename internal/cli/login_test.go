@@ -15,8 +15,8 @@ func TestLoginCommand(t *testing.T) {
 		wantErr    bool
 	}{
 		{
-			name: "shows GitHub token instructions",
-			args: []string{"login"},
+			name:  "shows GitHub token instructions",
+			args:  []string{"login"},
 			input: "\n", // Just press enter without token
 			wantOutput: []string{
 				"GitHub Personal Access Token Setup",
@@ -28,8 +28,8 @@ func TestLoginCommand(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "accepts valid token format",
-			args: []string{"login"},
+			name:  "accepts valid token format",
+			args:  []string{"login"},
 			input: "ghp_validtoken123\n",
 			wantOutput: []string{
 				"Enter your GitHub Personal Access Token:",
@@ -38,8 +38,8 @@ func TestLoginCommand(t *testing.T) {
 			wantErr: false, // Would fail in real test due to API call
 		},
 		{
-			name: "rejects empty token",
-			args: []string{"login"},
+			name:  "rejects empty token",
+			args:  []string{"login"},
 			input: "\n",
 			wantOutput: []string{
 				"Enter your GitHub Personal Access Token:",
@@ -48,8 +48,8 @@ func TestLoginCommand(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "shows success message on valid token",
-			args: []string{"login"},
+			name:  "shows success message on valid token",
+			args:  []string{"login"},
 			input: "ghp_testtoken123\n",
 			wantOutput: []string{
 				"Enter your GitHub Personal Access Token:",
@@ -66,28 +66,28 @@ func TestLoginCommand(t *testing.T) {
 			}
 
 			cmd := NewRootCmd()
-			
+
 			var out bytes.Buffer
 			var in bytes.Buffer
-			
+
 			cmd.SetOut(&out)
 			cmd.SetErr(&out)
 			cmd.SetIn(&in)
-			
+
 			// Write input
 			in.WriteString(tt.input)
-			
+
 			// Set args
 			cmd.SetArgs(tt.args)
-			
+
 			// Execute
 			err := cmd.Execute()
-			
+
 			// Check error
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			// Check output
 			output := out.String()
 			for _, want := range tt.wantOutput {
@@ -101,24 +101,24 @@ func TestLoginCommand(t *testing.T) {
 
 func TestLoginCommand_Help(t *testing.T) {
 	cmd := NewRootCmd()
-	
+
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetArgs([]string{"login", "--help"})
-	
+
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	
+
 	output := out.String()
 	expectedStrings := []string{
 		"Authenticate with GitHub using a Personal Access Token",
 		"https://github.com/settings/tokens",
 		"gist",
 	}
-	
+
 	for _, expected := range expectedStrings {
 		if !strings.Contains(output, expected) {
 			t.Errorf("Help text missing %q", expected)

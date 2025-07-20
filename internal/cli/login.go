@@ -12,6 +12,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/grigri201/prompt-vault/internal/auth"
+	"github.com/grigri201/prompt-vault/internal/errors"
 )
 
 // newLoginCmd creates the login command
@@ -53,14 +54,14 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	// Read token securely
 	token, err := readToken(cmd)
 	if err != nil {
-		return fmt.Errorf("failed to read token: %w", err)
+		return errors.WrapWithMessage(err, "failed to read token")
 	}
 
 	// Validate token is not empty
 	token = strings.TrimSpace(token)
 	if token == "" {
 		fmt.Fprintln(cmd.OutOrStderr(), "\nError: Token cannot be empty")
-		return fmt.Errorf("token cannot be empty")
+		return errors.NewValidationErrorMsg("login", "token cannot be empty")
 	}
 
 	// Create auth manager
@@ -68,11 +69,11 @@ func runLogin(cmd *cobra.Command, args []string) error {
 
 	// Validate token with GitHub API
 	fmt.Fprintln(cmd.OutOrStdout(), "\nValidating token...")
-	
+
 	ctx := context.Background()
 	username, err := validateAndSaveToken(ctx, authManager, token)
 	if err != nil {
-		return fmt.Errorf("failed to validate token: %w", err)
+		return errors.WrapWithMessage(err, "failed to validate token")
 	}
 
 	// Success message

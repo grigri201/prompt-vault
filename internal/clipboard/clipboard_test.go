@@ -49,11 +49,11 @@ func TestCopy(t *testing.T) {
 			}
 
 			err := Copy(tt.text)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Copy() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if err != nil && tt.errMsg != "" {
 				if !contains(err.Error(), tt.errMsg) {
 					t.Errorf("Error message = %v, want containing %v", err.Error(), tt.errMsg)
@@ -66,10 +66,10 @@ func TestCopy(t *testing.T) {
 func TestIsAvailable(t *testing.T) {
 	// This test verifies that IsAvailable returns a boolean without error
 	available := IsAvailable()
-	
+
 	// Log the result for debugging
 	t.Logf("Clipboard available on %s: %v", runtime.GOOS, available)
-	
+
 	// On CI or test environments, we just check that it doesn't panic
 	// The actual availability depends on the system configuration
 }
@@ -86,7 +86,7 @@ func TestPlatformSpecific(t *testing.T) {
 			if !isCommandAvailable("pbcopy") {
 				t.Skip("pbcopy not available")
 			}
-			
+
 			err := copyDarwin("test text")
 			if err != nil {
 				t.Errorf("copyDarwin() error = %v", err)
@@ -200,9 +200,9 @@ func TestUnsupportedPlatform(t *testing.T) {
 
 // contains checks if a string contains a substring
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && 
-		(s == substr || len(s) > 0 && len(substr) > 0 && 
-		(s[:len(substr)] == substr || contains(s[1:], substr)))
+	return len(s) >= len(substr) &&
+		(s == substr || len(s) > 0 && len(substr) > 0 &&
+			(s[:len(substr)] == substr || contains(s[1:], substr)))
 }
 
 // MockCommand is used for testing command execution
@@ -221,10 +221,10 @@ func TestExportedFunctions(t *testing.T) {
 	// This test ensures that the public API is maintained
 	var _ func(string) error = Copy
 	var _ func() bool = IsAvailable
-	
+
 	// Verify that the functions can be called
 	_ = IsAvailable()
-	
+
 	// Copy with empty string should return error
 	err := Copy("")
 	if err == nil {
