@@ -15,6 +15,7 @@ type PromptMeta struct {
 	Tags        []string `yaml:"tags" json:"tags"`
 	Version     string   `yaml:"version,omitempty" json:"version,omitempty"`
 	Description string   `yaml:"description,omitempty" json:"description,omitempty"`
+	Parent      string   `yaml:"parent,omitempty" json:"parent,omitempty"`
 }
 
 // Validate checks if all required fields are present and valid
@@ -80,7 +81,39 @@ type IndexEntry struct {
 
 // Index represents the complete index file with all prompt entries
 type Index struct {
-	Username  string       `json:"username"`
-	Entries   []IndexEntry `json:"entries"`
-	UpdatedAt time.Time    `json:"updated_at"`
+	Username        string       `json:"username"`
+	Entries         []IndexEntry `json:"entries"`
+	ImportedEntries []IndexEntry `json:"imported_entries"`
+	UpdatedAt       time.Time    `json:"updated_at"`
+}
+
+// AddImportedEntry adds a new entry to ImportedEntries
+func (idx *Index) AddImportedEntry(entry IndexEntry) {
+	if idx.ImportedEntries == nil {
+		idx.ImportedEntries = []IndexEntry{}
+	}
+	idx.ImportedEntries = append(idx.ImportedEntries, entry)
+}
+
+// UpdateImportedEntry updates an existing imported entry by GistID
+// Returns true if the entry was found and updated, false otherwise
+func (idx *Index) UpdateImportedEntry(entry IndexEntry) bool {
+	for i, e := range idx.ImportedEntries {
+		if e.GistID == entry.GistID {
+			idx.ImportedEntries[i] = entry
+			return true
+		}
+	}
+	return false
+}
+
+// FindImportedEntry finds an imported entry by GistID
+// Returns the entry and true if found, empty entry and false otherwise
+func (idx *Index) FindImportedEntry(gistID string) (IndexEntry, bool) {
+	for _, entry := range idx.ImportedEntries {
+		if entry.GistID == gistID {
+			return entry, true
+		}
+	}
+	return IndexEntry{}, false
 }

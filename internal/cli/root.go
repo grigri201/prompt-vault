@@ -34,6 +34,8 @@ your clipboard.`,
 		newDeleteCmd(),
 		newSyncCmd(),
 		newConfigCmd(),
+		newShareCommand(),
+		newImportCommand(),
 	)
 
 	return rootCmd

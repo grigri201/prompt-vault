@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -50,10 +51,19 @@ func TestGetCommand(t *testing.T) {
 							Category:    "writing",
 							Version:     "1.0",
 							Description: "Professional email templates",
+							Tags:        []string{"email", "writing"},
 							UpdatedAt:   time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
+				}
+				// Save prompts with content and update entries with GistID
+				for i := range index.Entries {
+					// Generate GistID if not set
+					if index.Entries[i].GistID == "" {
+						index.Entries[i].GistID = fmt.Sprintf("gist_%s", strings.ReplaceAll(strings.ToLower(index.Entries[i].Name), " ", "_"))
+					}
+					savePromptToCache(t, cacheManager, index.Entries[i], fmt.Sprintf("Content for %s", index.Entries[i].Name))
 				}
 				if err := cacheManager.SaveIndex(index); err != nil {
 					t.Fatal(err)
@@ -81,6 +91,7 @@ func TestGetCommand(t *testing.T) {
 							Category:    "writing",
 							Version:     "1.0",
 							Description: "Professional email templates",
+							Tags:        []string{"email", "writing"},
 							UpdatedAt:   time.Now(),
 						},
 						{
@@ -88,10 +99,19 @@ func TestGetCommand(t *testing.T) {
 							Author:    "testuser",
 							Category:  "development",
 							Version:   "1.0",
+							Tags:      []string{"code", "review"},
 							UpdatedAt: time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
+				}
+				// Save prompts with content and update entries with GistID
+				for i := range index.Entries {
+					// Generate GistID if not set
+					if index.Entries[i].GistID == "" {
+						index.Entries[i].GistID = fmt.Sprintf("gist_%s", strings.ReplaceAll(strings.ToLower(index.Entries[i].Name), " ", "_"))
+					}
+					savePromptToCache(t, cacheManager, index.Entries[i], fmt.Sprintf("Content for %s", index.Entries[i].Name))
 				}
 				if err := cacheManager.SaveIndex(index); err != nil {
 					t.Fatal(err)
@@ -138,6 +158,14 @@ func TestGetCommand(t *testing.T) {
 					},
 					UpdatedAt: time.Now(),
 				}
+				// Save prompts with content and update entries with GistID
+				for i := range index.Entries {
+					// Generate GistID if not set
+					if index.Entries[i].GistID == "" {
+						index.Entries[i].GistID = fmt.Sprintf("gist_%s", strings.ReplaceAll(strings.ToLower(index.Entries[i].Name), " ", "_"))
+					}
+					savePromptToCache(t, cacheManager, index.Entries[i], fmt.Sprintf("Content for %s", index.Entries[i].Name))
+				}
 				if err := cacheManager.SaveIndex(index); err != nil {
 					t.Fatal(err)
 				}
@@ -161,6 +189,7 @@ func TestGetCommand(t *testing.T) {
 							Author:    "john_doe",
 							Category:  "general",
 							Version:   "1.0",
+							Tags:      []string{"template", "general"},
 							UpdatedAt: time.Now(),
 						},
 						{
@@ -168,10 +197,19 @@ func TestGetCommand(t *testing.T) {
 							Author:    "jane_smith",
 							Category:  "general",
 							Version:   "1.0",
+							Tags:      []string{"template", "general"},
 							UpdatedAt: time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
+				}
+				// Save prompts with content and update entries with GistID
+				for i := range index.Entries {
+					// Generate GistID if not set
+					if index.Entries[i].GistID == "" {
+						index.Entries[i].GistID = fmt.Sprintf("gist_%s", strings.ReplaceAll(strings.ToLower(index.Entries[i].Name), " ", "_"))
+					}
+					savePromptToCache(t, cacheManager, index.Entries[i], fmt.Sprintf("Content for %s", index.Entries[i].Name))
 				}
 				if err := cacheManager.SaveIndex(index); err != nil {
 					t.Fatal(err)
@@ -196,6 +234,7 @@ func TestGetCommand(t *testing.T) {
 							Category:    "writing",
 							Version:     "1.0",
 							Description: "Professional email templates for business",
+							Tags:        []string{"email", "business"},
 							UpdatedAt:   time.Now(),
 						},
 						{
@@ -204,10 +243,19 @@ func TestGetCommand(t *testing.T) {
 							Category:    "development",
 							Version:     "1.0",
 							Description: "Casual coding assistant",
+							Tags:        []string{"code", "helper"},
 							UpdatedAt:   time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
+				}
+				// Save prompts with content and update entries with GistID
+				for i := range index.Entries {
+					// Generate GistID if not set
+					if index.Entries[i].GistID == "" {
+						index.Entries[i].GistID = fmt.Sprintf("gist_%s", strings.ReplaceAll(strings.ToLower(index.Entries[i].Name), " ", "_"))
+					}
+					savePromptToCache(t, cacheManager, index.Entries[i], fmt.Sprintf("Content for %s", index.Entries[i].Name))
 				}
 				if err := cacheManager.SaveIndex(index); err != nil {
 					t.Fatal(err)
@@ -232,6 +280,7 @@ func TestGetCommand(t *testing.T) {
 							Author:    "testuser",
 							Category:  "general",
 							Version:   "1.0",
+							Tags:      []string{"template", "general"},
 							UpdatedAt: time.Now(),
 						},
 						{
@@ -239,10 +288,19 @@ func TestGetCommand(t *testing.T) {
 							Author:    "testuser",
 							Category:  "general",
 							Version:   "1.0",
+							Tags:      []string{"template", "general"},
 							UpdatedAt: time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
+				}
+				// Save prompts with content and update entries with GistID
+				for i := range index.Entries {
+					// Generate GistID if not set
+					if index.Entries[i].GistID == "" {
+						index.Entries[i].GistID = fmt.Sprintf("gist_%s", strings.ReplaceAll(strings.ToLower(index.Entries[i].Name), " ", "_"))
+					}
+					savePromptToCache(t, cacheManager, index.Entries[i], fmt.Sprintf("Content for %s", index.Entries[i].Name))
 				}
 				if err := cacheManager.SaveIndex(index); err != nil {
 					t.Fatal(err)
@@ -267,10 +325,19 @@ func TestGetCommand(t *testing.T) {
 							Author:    "testuser",
 							Category:  "general",
 							Version:   "1.0",
+							Tags:      []string{"template", "general"},
 							UpdatedAt: time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
+				}
+				// Save prompts with content and update entries with GistID
+				for i := range index.Entries {
+					// Generate GistID if not set
+					if index.Entries[i].GistID == "" {
+						index.Entries[i].GistID = fmt.Sprintf("gist_%s", strings.ReplaceAll(strings.ToLower(index.Entries[i].Name), " ", "_"))
+					}
+					savePromptToCache(t, cacheManager, index.Entries[i], fmt.Sprintf("Content for %s", index.Entries[i].Name))
 				}
 				if err := cacheManager.SaveIndex(index); err != nil {
 					t.Fatal(err)
@@ -293,10 +360,19 @@ func TestGetCommand(t *testing.T) {
 							Author:    "testuser",
 							Category:  "development",
 							Version:   "1.0",
+							Tags:      []string{"coding", "assistant"},
 							UpdatedAt: time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
+				}
+				// Save prompts with content and update entries with GistID
+				for i := range index.Entries {
+					// Generate GistID if not set
+					if index.Entries[i].GistID == "" {
+						index.Entries[i].GistID = fmt.Sprintf("gist_%s", strings.ReplaceAll(strings.ToLower(index.Entries[i].Name), " ", "_"))
+					}
+					savePromptToCache(t, cacheManager, index.Entries[i], fmt.Sprintf("Content for %s", index.Entries[i].Name))
 				}
 				if err := cacheManager.SaveIndex(index); err != nil {
 					t.Fatal(err)
@@ -382,5 +458,34 @@ func TestGetCommand_Help(t *testing.T) {
 		if !strings.Contains(output, expected) {
 			t.Errorf("Help text missing %q", expected)
 		}
+	}
+}
+
+// Helper function to save prompt with content to cache
+func savePromptToCache(t *testing.T, cacheManager *cache.Manager, entry models.IndexEntry, content string) {
+	// Create a gist ID if not provided
+	if entry.GistID == "" {
+		entry.GistID = fmt.Sprintf("gist_%s", strings.ReplaceAll(strings.ToLower(entry.Name), " ", "_"))
+	}
+	
+	// Create the full prompt
+	prompt := &models.Prompt{
+		PromptMeta: models.PromptMeta{
+			Name:        entry.Name,
+			Author:      entry.Author,
+			Category:    entry.Category,
+			Tags:        entry.Tags,
+			Version:     entry.Version,
+			Description: entry.Description,
+		},
+		GistID:    entry.GistID,
+		GistURL:   entry.GistURL,
+		UpdatedAt: entry.UpdatedAt,
+		Content:   content,
+	}
+	
+	// Save the prompt
+	if err := cacheManager.SavePrompt(prompt); err != nil {
+		t.Fatalf("Failed to save prompt: %v", err)
 	}
 }

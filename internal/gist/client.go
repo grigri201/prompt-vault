@@ -141,6 +141,43 @@ func (c *Client) CreateGist(ctx context.Context, gistName, description, content 
 	return *gist.ID, *gist.HTMLURL, nil
 }
 
+// CreatePublicGist creates a new public Gist with the given content
+func (c *Client) CreatePublicGist(ctx context.Context, gistName, description, content string) (string, string, error) {
+	// Validate inputs
+	if gistName == "" {
+		return "", "", errors.NewValidationErrorMsg("CreatePublicGist", "gist name is required")
+	}
+	if content == "" {
+		return "", "", errors.NewValidationErrorMsg("CreatePublicGist", "content is required")
+	}
+
+	// Prepare the gist request
+	gistReq := &github.Gist{
+		Description: github.String(description),
+		Public:      github.Bool(true), // Create public gist
+		Files: map[github.GistFilename]github.GistFile{
+			github.GistFilename(gistName + ".yaml"): {
+				Content: github.String(content),
+			},
+		},
+	}
+
+	// Create the gist
+	gist, _, err := c.github.Gists.Create(ctx, gistReq)
+	if err != nil {
+		if c.IsRateLimitError(err) {
+			return "", "", errors.NewNetworkError("CreatePublicGist", err)
+		}
+		return "", "", errors.WrapWithMessage(err, "failed to create gist")
+	}
+
+	if gist.ID == nil || gist.HTMLURL == nil {
+		return "", "", errors.NewNetworkErrorMsg("CreatePublicGist", "unexpected response from GitHub API")
+	}
+
+	return *gist.ID, *gist.HTMLURL, nil
+}
+
 // UpdateGist updates an existing Gist with new content
 func (c *Client) UpdateGist(ctx context.Context, gistID, gistName, description, content string) (string, error) {
 	// Validate inputs
@@ -231,6 +268,158 @@ func (c *Client) DeleteGist(ctx context.Context, gistID string) error {
 	}
 
 	return nil
+}
+
+// ListUserGists lists all gists for a specific user, handling pagination
+func (c *Client) ListUserGists(ctx context.Context, username string) ([]*github.Gist, error) {
+	// Validate input
+	if username == "" {
+		return nil, errors.NewValidationErrorMsg("ListUserGists", "username is required")
+	}
+
+	var allGists []*github.Gist
+	opt := &github.GistListOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 100, // Max per page
+		},
+	}
+
+	for {
+		// List gists for the user
+		gists, resp, err := c.github.Gists.List(ctx, username, opt)
+		if err != nil {
+			if resp != nil && resp.StatusCode == http.StatusNotFound {
+				return nil, errors.WrapWithMessage(err, "failed to list gists")
+			}
+			if c.IsRateLimitError(err) {
+				return nil, errors.NewNetworkError("ListUserGists", err)
+			}
+			return nil, errors.WrapWithMessage(err, "failed to list gists")
+		}
+
+		// Append to results
+		allGists = append(allGists, gists...)
+
+		// Check if there are more pages
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+
+	return allGists, nil
+}
+
+// ExtractGistID extracts the gist ID from various GitHub gist URL formats
+func (c *Client) ExtractGistID(gistURL string) (string, error) {
+	// Validate input
+	if gistURL == "" {
+		return "", errors.NewValidationErrorMsg("ExtractGistID", "gist URL is required")
+	}
+
+	// Clean the URL
+	gistURL = strings.TrimSpace(gistURL)
+	
+	// If it's already just a gist ID (alphanumeric), return it
+	if isValidGistID(gistURL) {
+		return gistURL, nil
+	}
+
+	// Remove protocol if present
+	gistURL = strings.TrimPrefix(gistURL, "https://")
+	gistURL = strings.TrimPrefix(gistURL, "http://")
+
+	// Check if it's a gist URL
+	if !strings.Contains(gistURL, "gist.github") {
+		return "", errors.NewValidationErrorMsg("ExtractGistID", "not a GitHub gist URL")
+	}
+
+	// Split by slashes
+	parts := strings.Split(gistURL, "/")
+	
+	// Find the gist ID based on URL pattern
+	var gistID string
+	
+	// For gist.github.com/user/gistid or gist.githubusercontent.com/user/gistid/...
+	// We need to find the part after the username
+	foundUser := false
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		
+		// Skip domain parts
+		if strings.Contains(part, "gist.github") {
+			continue
+		}
+		
+		// First non-domain part is username, next is gist ID
+		if !foundUser {
+			foundUser = true
+			continue
+		}
+		
+		// This should be the gist ID
+		// Check if it contains invalid characters first
+		if strings.ContainsAny(part, "$*!@#%^&()+={}[]|\\:;\"'<>,.?/") {
+			return "", errors.NewValidationErrorMsg("ExtractGistID", "invalid gist ID format")
+		}
+		if isValidGistID(part) {
+			gistID = part
+			break
+		}
+	}
+
+	if gistID == "" {
+		return "", errors.NewValidationErrorMsg("ExtractGistID", "could not extract gist ID from URL")
+	}
+
+	// Validate the extracted ID doesn't contain path traversal
+	if strings.Contains(gistID, "..") || strings.Contains(gistID, "/") {
+		return "", errors.NewValidationErrorMsg("ExtractGistID", "invalid gist ID format")
+	}
+
+	return gistID, nil
+}
+
+// isValidGistID checks if a string is a valid gist ID (alphanumeric)
+func isValidGistID(s string) bool {
+	if s == "" || len(s) > 100 { // GitHub gist IDs are not extremely long
+		return false
+	}
+	for _, c := range s {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+			return false
+		}
+	}
+	return true
+}
+
+// GetGistByURL fetches a gist using its URL
+func (c *Client) GetGistByURL(ctx context.Context, gistURL string) (*github.Gist, error) {
+	// Validate input
+	if gistURL == "" {
+		return nil, errors.NewValidationErrorMsg("GetGistByURL", "gist URL is required")
+	}
+
+	// Extract gist ID from URL
+	gistID, err := c.ExtractGistID(gistURL)
+	if err != nil {
+		// Enhance error message for specific cases
+		if strings.Contains(err.Error(), "not a GitHub gist URL") {
+			return nil, errors.NewValidationErrorMsg("GetGistByURL", "not a GitHub gist URL")
+		}
+		if strings.Contains(err.Error(), "could not extract") {
+			return nil, errors.NewValidationErrorMsg("GetGistByURL", "could not extract gist ID from URL")
+		}
+		if strings.Contains(err.Error(), "invalid gist ID format") {
+			return nil, errors.NewValidationErrorMsg("GetGistByURL", "invalid gist ID format")
+		}
+		return nil, errors.NewValidationErrorMsg("GetGistByURL", "invalid gist URL format")
+	}
+
+	// Fetch the gist using the ID
+	return c.GetGist(ctx, gistID)
 }
 
 // UpdateIndexGist updates or creates the index Gist for a user
