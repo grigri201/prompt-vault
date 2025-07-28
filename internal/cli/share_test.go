@@ -36,7 +36,7 @@ func TestShareCommand_Execute(t *testing.T) {
 	}{
 		{
 			name: "successful new share",
-			args: []string{"private123"},
+			args: []string{"1234567890abcdef1234567890abcdef"},
 			shareFunc: func(ctx context.Context, privateGistID string) (*share.ShareResult, error) {
 				return &share.ShareResult{
 					PublicGistID:  "public456",
@@ -46,11 +46,11 @@ func TestShareCommand_Execute(t *testing.T) {
 			},
 			expectError:    false,
 			expectedOutput: "Successfully created public gist: https://gist.github.com/testuser/public456",
-			expectedCalls:  []string{"private123"},
+			expectedCalls:  []string{"1234567890abcdef1234567890abcdef"},
 		},
 		{
 			name: "successful update",
-			args: []string{"private789"},
+			args: []string{"abcdef1234567890abcdef1234567890"},
 			shareFunc: func(ctx context.Context, privateGistID string) (*share.ShareResult, error) {
 				return &share.ShareResult{
 					PublicGistID:  "public999",
@@ -60,34 +60,34 @@ func TestShareCommand_Execute(t *testing.T) {
 			},
 			expectError:    false,
 			expectedOutput: "Successfully updated public gist: https://gist.github.com/testuser/public999",
-			expectedCalls:  []string{"private789"},
+			expectedCalls:  []string{"abcdef1234567890abcdef1234567890"},
 		},
 		{
-			name:           "missing gist ID argument",
+			name:           "missing gist ID argument shows list",
 			args:           []string{},
-			expectError:    true,
-			expectedOutput: "accepts 1 arg(s), received 0",
+			expectError:    true,  // Will get TTY error in test environment
+			expectedOutput: "Found 1 prompt(s) to share",  // Default test data has 1 prompt
 			expectedCalls:  []string{},
 		},
 		{
 			name: "share error",
-			args: []string{"error123"},
+			args: []string{"fedcba0987654321fedcba0987654321"},
 			shareFunc: func(ctx context.Context, privateGistID string) (*share.ShareResult, error) {
 				return nil, fmt.Errorf("gist not found")
 			},
 			expectError:    true,
 			expectedOutput: "The gist was not found. Please check the gist ID and try again",
-			expectedCalls:  []string{"error123"},
+			expectedCalls:  []string{"fedcba0987654321fedcba0987654321"},
 		},
 		{
 			name: "already public error",
-			args: []string{"public123"},
+			args: []string{"1111111111111111111111111111111a"},
 			shareFunc: func(ctx context.Context, privateGistID string) (*share.ShareResult, error) {
-				return nil, fmt.Errorf("cannot share: gist public123 is already public")
+				return nil, fmt.Errorf("cannot share: gist 1111111111111111111111111111111a is already public")
 			},
 			expectError:    true,
 			expectedOutput: "already public",
-			expectedCalls:  []string{"public123"},
+			expectedCalls:  []string{"1111111111111111111111111111111a"},
 		},
 	}
 
@@ -150,7 +150,7 @@ func TestShareCommand_Integration(t *testing.T) {
 	mockGistClient := &MockGistClient{
 		GetGistFunc: func(ctx context.Context, gistID string) (*github.Gist, error) {
 			return &github.Gist{
-				ID:     github.String("private123"),
+				ID:     github.String("1234567890abcdef1234567890abcdef"),
 				Public: github.Bool(false),
 				Files: map[github.GistFilename]github.GistFile{
 					"test.yaml": {
@@ -187,13 +187,13 @@ Content`),
 	root.AddCommand(shareCmd)
 
 	// Test command can be found
-	cmd, _, err := root.Find([]string{"share", "private123"})
+	cmd, _, err := root.Find([]string{"share", "1234567890abcdef1234567890abcdef"})
 	if err != nil {
 		t.Fatalf("Failed to find share command: %v", err)
 	}
 
-	if cmd.Use != "share <gist-id>" {
-		t.Errorf("Expected command use to be 'share <gist-id>', got %q", cmd.Use)
+	if cmd.Use != "share [<gist-id>|<keyword>]" {
+		t.Errorf("Expected command use to be 'share [<gist-id>|<keyword>]', got %q", cmd.Use)
 	}
 }
 

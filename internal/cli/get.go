@@ -10,8 +10,8 @@ import (
 	"github.com/grigri201/prompt-vault/internal/cache"
 	"github.com/grigri201/prompt-vault/internal/clipboard"
 	"github.com/grigri201/prompt-vault/internal/errors"
-	"github.com/grigri201/prompt-vault/internal/models"
 	"github.com/grigri201/prompt-vault/internal/parser"
+	"github.com/grigri201/prompt-vault/internal/search"
 	"github.com/grigri201/prompt-vault/internal/ui"
 )
 
@@ -49,16 +49,12 @@ func runGet(cmd *cobra.Command, args []string) error {
 	// If no keyword provided, show all
 	keyword := ""
 	if len(args) > 0 {
-		keyword = strings.ToLower(args[0])
+		keyword = args[0]
 	}
 
-	// Search entries
-	var matches []int
-	for i, entry := range index.Entries {
-		if keyword == "" || matchesKeyword(entry, keyword) {
-			matches = append(matches, i)
-		}
-	}
+	// Use search package to find matches
+	searcher := search.NewSearcher()
+	matches := searcher.SearchEntries(index.Entries, keyword)
 
 	// Check if any matches found
 	if len(matches) == 0 {
@@ -80,6 +76,11 @@ func runGet(cmd *cobra.Command, args []string) error {
 		}
 		if entry.Description != "" {
 			fmt.Fprintf(cmd.OutOrStdout(), "    Description: %s\n", entry.Description)
+		}
+		if entry.GistURL != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "    Gist URL: %s\n", entry.GistURL)
+		} else {
+			fmt.Fprintln(cmd.OutOrStdout(), "    Gist URL: ")
 		}
 		fmt.Fprintln(cmd.OutOrStdout())
 		
@@ -114,6 +115,13 @@ func runGet(cmd *cobra.Command, args []string) error {
 		return errors.WrapWithMessage(err, "failed to load prompt")
 	}
 
+	// Display selected prompt details with Gist URL
+	fmt.Fprintln(cmd.OutOrStdout(), "\nSelected prompt:")
+	fmt.Fprintf(cmd.OutOrStdout(), "Name: %s\n", selectedEntry.Name)
+	if selectedEntry.GistURL != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "Gist URL: %s\n", selectedEntry.GistURL)
+	}
+	
 	// Parse variables in the prompt
 	vars := parser.ExtractVariables(prompt.Content)
 	
@@ -152,39 +160,11 @@ func runGet(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(cmd.OutOrStdout(), finalContent)
 	} else {
 		fmt.Fprintln(cmd.OutOrStdout(), "\n✓ Prompt copied to clipboard!")
+		if selectedEntry.GistURL != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Gist URL: %s\n", selectedEntry.GistURL)
+		}
 	}
 
 	return nil
 }
 
-// matchesKeyword checks if an entry matches the search keyword
-func matchesKeyword(entry models.IndexEntry, keyword string) bool {
-	// Search in name
-	if strings.Contains(strings.ToLower(entry.Name), keyword) {
-		return true
-	}
-
-	// Search in author
-	if strings.Contains(strings.ToLower(entry.Author), keyword) {
-		return true
-	}
-
-	// Search in category
-	if strings.Contains(strings.ToLower(entry.Category), keyword) {
-		return true
-	}
-
-	// Search in description
-	if strings.Contains(strings.ToLower(entry.Description), keyword) {
-		return true
-	}
-
-	// Search in tags
-	for _, tag := range entry.Tags {
-		if strings.Contains(strings.ToLower(tag), keyword) {
-			return true
-		}
-	}
-
-	return false
-}

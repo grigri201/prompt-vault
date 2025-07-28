@@ -6,12 +6,42 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/grigri201/prompt-vault/internal/auth"
+	"github.com/grigri201/prompt-vault/internal/cache"
 	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
+	"github.com/grigri201/prompt-vault/internal/search"
 	"github.com/grigri201/prompt-vault/internal/share"
 	"github.com/grigri201/prompt-vault/internal/ui"
 	"github.com/spf13/cobra"
 )
+
+// isGistID checks if the input string is a valid GitHub gist ID
+// GitHub gist IDs are 32-character hexadecimal strings
+func isGistID(input string) bool {
+	if len(input) != 32 {
+		return false
+	}
+	
+	for _, c := range input {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	
+	return true
+}
+
+// formatTags formats a slice of tags into a comma-separated string
+func formatTags(tags []string) string {
+	result := ""
+	for i, tag := range tags {
+		if i > 0 {
+			result += ", "
+		}
+		result += tag
+	}
+	return result
+}
 
 type shareOptions struct {
 	gistID string
@@ -21,15 +51,22 @@ func newShareCommand() *cobra.Command {
 	opts := &shareOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "share <gist-id>",
+		Use:   "share [<gist-id>|<keyword>]",
 		Short: "Share a private prompt as a public gist",
 		Long: `Share a private prompt as a public gist. This creates a public copy of your private prompt
 that can be shared with others. The original private gist remains unchanged.
 
+Usage:
+  pv share                   # List all prompts and select one to share
+  pv share <keyword>         # Search for prompts matching keyword and select one to share
+  pv share <gist-id>         # Share a specific prompt by its gist ID
+
 If a public version already exists, you'll be prompted to update it.`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts.gistID = args[0]
+			if len(args) > 0 {
+				opts.gistID = args[0]
+			}
 			return runShare(cmd, opts)
 		},
 	}
@@ -42,15 +79,22 @@ func newShareCmd(manager shareManager) *cobra.Command {
 	opts := &shareOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "share <gist-id>",
+		Use:   "share [<gist-id>|<keyword>]",
 		Short: "Share a private prompt as a public gist",
 		Long: `Share a private prompt as a public gist. This creates a public copy of your private prompt
 that can be shared with others. The original private gist remains unchanged.
 
+Usage:
+  pv share                   # List all prompts and select one to share
+  pv share <keyword>         # Search for prompts matching keyword and select one to share
+  pv share <gist-id>         # Share a specific prompt by its gist ID
+
 If a public version already exists, you'll be prompted to update it.`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts.gistID = args[0]
+			if len(args) > 0 {
+				opts.gistID = args[0]
+			}
 			return runShareWithManager(cmd, opts, manager)
 		},
 	}
@@ -112,6 +156,168 @@ func (u *cliUI) Confirm(message string) (bool, error) {
 
 func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareManager) error {
 	ctx := context.Background()
+
+	// If no gist ID provided, show prompt selection
+	if opts.gistID == "" {
+		// Get cache manager
+		cachePath := getCachePathFunc()
+		cacheManager := cache.NewManagerWithPath(cachePath)
+		
+		// Load index
+		index, err := cacheManager.GetIndex()
+		if err != nil {
+			return errors.WrapWithMessage(err, "failed to load index")
+		}
+		
+		// Check if index is empty
+		if index == nil || len(index.Entries) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "No prompts found.")
+			fmt.Fprintln(cmd.OutOrStdout(), "Use 'pv sync' to download prompts from GitHub.")
+			return nil
+		}
+		
+		// Display all prompts for selection
+		fmt.Fprintf(cmd.OutOrStdout(), "Found %d prompt(s) to share:\n\n", len(index.Entries))
+		
+		// Create display items
+		items := make([]string, len(index.Entries))
+		for i, entry := range index.Entries {
+			items[i] = fmt.Sprintf("[%d] %s by %s", i+1, entry.Name, entry.Author)
+		}
+		
+		// Show details for each prompt
+		for i, entry := range index.Entries {
+			fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
+			fmt.Fprintf(cmd.OutOrStdout(), "   Category: %s\n", entry.Category)
+			if len(entry.Tags) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "   Tags: %s\n", formatTags(entry.Tags))
+			}
+			if entry.Description != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "   Description: %s\n", entry.Description)
+			}
+			if i < len(index.Entries)-1 {
+				fmt.Fprintln(cmd.OutOrStdout())
+			}
+		}
+		
+		// Create selector for prompts
+		selector := ui.NewSelector(items)
+		p := tea.NewProgram(selector)
+		finalModel, err := p.Run()
+		if err != nil {
+			return errors.WrapWithMessage(err, "failed to run selector")
+		}
+		
+		// Check if user made a selection
+		selectorModel := finalModel.(ui.SelectorModel)
+		if !selectorModel.IsConfirmed() {
+			fmt.Fprintln(cmd.OutOrStdout(), "\nNo selection made.")
+			return nil
+		}
+		
+		// Get the selected prompt's gist ID
+		selectedIdx := selectorModel.Selected
+		opts.gistID = index.Entries[selectedIdx].GistID
+	} else if !isGistID(opts.gistID) {
+		// If argument is not a gist ID, treat it as a keyword search
+		cachePath := getCachePathFunc()
+		cacheManager := cache.NewManagerWithPath(cachePath)
+		
+		// Load index
+		index, err := cacheManager.GetIndex()
+		if err != nil {
+			return errors.WrapWithMessage(err, "failed to load index")
+		}
+		
+		// Check if index is empty
+		if index == nil || len(index.Entries) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "No prompts found.")
+			fmt.Fprintln(cmd.OutOrStdout(), "Use 'pv sync' to download prompts from GitHub.")
+			return nil
+		}
+		
+		// Search for matching prompts
+		searcher := search.Searcher{}
+		matches := searcher.SearchEntries(index.Entries, opts.gistID)
+		
+		if len(matches) == 0 {
+			return fmt.Errorf("No prompts found matching '%s'", opts.gistID)
+		}
+		
+		if len(matches) == 1 {
+			// Single match - ask for confirmation
+			matchedEntry := index.Entries[matches[0]]
+			fmt.Fprintf(cmd.OutOrStdout(), "Found 1 prompt matching '%s':\n\n", opts.gistID)
+			fmt.Fprintf(cmd.OutOrStdout(), "%s by %s\n", matchedEntry.Name, matchedEntry.Author)
+			fmt.Fprintf(cmd.OutOrStdout(), "Category: %s\n", matchedEntry.Category)
+			if len(matchedEntry.Tags) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Tags: %s\n", formatTags(matchedEntry.Tags))
+			}
+			if matchedEntry.Description != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Description: %s\n", matchedEntry.Description)
+			}
+			fmt.Fprintln(cmd.OutOrStdout())
+			
+			// Ask for confirmation
+			confirmMsg := "Share this prompt?"
+			uiAdapter := &cliUI{cmd: cmd}
+			confirmed, err := uiAdapter.Confirm(confirmMsg)
+			if err != nil {
+				return errors.WrapWithMessage(err, "failed to get confirmation")
+			}
+			if !confirmed {
+				fmt.Fprintln(cmd.OutOrStdout(), "Share cancelled.")
+				return nil
+			}
+			
+			opts.gistID = matchedEntry.GistID
+		} else {
+			// Multiple matches - show selection
+			fmt.Fprintf(cmd.OutOrStdout(), "Found %d prompt(s) matching '%s':\n\n", len(matches), opts.gistID)
+			
+			// Create display items
+			items := make([]string, len(matches))
+			for i, matchIdx := range matches {
+				entry := index.Entries[matchIdx]
+				items[i] = fmt.Sprintf("[%d] %s by %s", i+1, entry.Name, entry.Author)
+			}
+			
+			// Show details for each matching prompt
+			for i, matchIdx := range matches {
+				entry := index.Entries[matchIdx]
+				fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
+				fmt.Fprintf(cmd.OutOrStdout(), "   Category: %s\n", entry.Category)
+				if len(entry.Tags) > 0 {
+					fmt.Fprintf(cmd.OutOrStdout(), "   Tags: %s\n", formatTags(entry.Tags))
+				}
+				if entry.Description != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "   Description: %s\n", entry.Description)
+				}
+				if i < len(matches)-1 {
+					fmt.Fprintln(cmd.OutOrStdout())
+				}
+			}
+			
+			// Create selector for prompts
+			selector := ui.NewSelector(items)
+			p := tea.NewProgram(selector)
+			finalModel, err := p.Run()
+			if err != nil {
+				return errors.WrapWithMessage(err, "failed to run selector")
+			}
+			
+			// Check if user made a selection
+			selectorModel := finalModel.(ui.SelectorModel)
+			if !selectorModel.IsConfirmed() {
+				fmt.Fprintln(cmd.OutOrStdout(), "\nNo selection made.")
+				return nil
+			}
+			
+			// Get the selected prompt's gist ID
+			selectedIdx := selectorModel.Selected
+			opts.gistID = index.Entries[matches[selectedIdx]].GistID
+		}
+	}
 
 	// Share the prompt
 	result, err := manager.SharePrompt(ctx, opts.gistID)

@@ -73,6 +73,102 @@ func TestListCommand(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "displays prompts with gist URLs",
+			args: []string{"list"},
+			setupCache: func(t *testing.T, cacheManager *cache.Manager) {
+				// Save test index with gist URLs
+				index := &models.Index{
+					Username: "testuser",
+					Entries: []models.IndexEntry{
+						{
+							GistID:    "abc123def456",
+							GistURL:   "https://gist.github.com/testuser/abc123def456",
+							Name:      "Test Prompt",
+							Author:    "testuser",
+							Category:  "testing",
+							Version:   "1.0",
+							UpdatedAt: time.Now(),
+						},
+						{
+							GistID:    "789xyz012",
+							GistURL:   "https://gist.github.com/testuser/789xyz012",
+							Name:      "Another Prompt",
+							Author:    "testuser",
+							Category:  "example",
+							Version:   "2.0",
+							UpdatedAt: time.Now(),
+						},
+					},
+					UpdatedAt: time.Now(),
+				}
+				if err := cacheManager.SaveIndex(index); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantOutput: []string{
+				"Name",
+				"Author",
+				"Category",
+				"Version",
+				"Gist URL",
+				"Test Prompt",
+				"testuser",
+				"testing",
+				"1.0",
+				"https://gist.github.com/testuser/abc123def456",
+				"Another Prompt",
+				"example",
+				"2.0",
+				"https://gist.github.com/testuser/789xyz012",
+			},
+			wantErr: false,
+		},
+		{
+			name: "handles empty gist URLs gracefully",
+			args: []string{"list"},
+			setupCache: func(t *testing.T, cacheManager *cache.Manager) {
+				// Save test index with mixed gist URLs
+				index := &models.Index{
+					Username: "testuser",
+					Entries: []models.IndexEntry{
+						{
+							GistID:    "abc123def456",
+							GistURL:   "https://gist.github.com/testuser/abc123def456",
+							Name:      "Prompt with URL",
+							Author:    "testuser",
+							Category:  "testing",
+							Version:   "1.0",
+							UpdatedAt: time.Now(),
+						},
+						{
+							// No GistURL
+							Name:      "Prompt without URL",
+							Author:    "testuser",
+							Category:  "example",
+							Version:   "2.0",
+							UpdatedAt: time.Now(),
+						},
+					},
+					UpdatedAt: time.Now(),
+				}
+				if err := cacheManager.SaveIndex(index); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantOutput: []string{
+				"Name",
+				"Author",
+				"Category",
+				"Version",
+				"Gist URL",
+				"Prompt with URL",
+				"https://gist.github.com/testuser/abc123def456",
+				"Prompt without URL",
+				// Empty URL should show as empty or placeholder
+			},
+			wantErr: false,
+		},
+		{
 			name: "shows pagination info",
 			args: []string{"list"},
 			setupCache: func(t *testing.T, cacheManager *cache.Manager) {
@@ -99,6 +195,75 @@ func TestListCommand(t *testing.T) {
 			wantOutput: []string{
 				"Page 1 of 2",
 				"Showing 1-20 of 25",
+			},
+			wantErr: false,
+		},
+		{
+			name: "displays gist URLs with pagination",
+			args: []string{"list", "--page", "2"},
+			setupCache: func(t *testing.T, cacheManager *cache.Manager) {
+				// Create many entries with URLs to trigger pagination
+				entries := make([]models.IndexEntry, 25)
+				for i := 0; i < 25; i++ {
+					entries[i] = models.IndexEntry{
+						GistID:    fmt.Sprintf("gist%d", i+1),
+						GistURL:   fmt.Sprintf("https://gist.github.com/testuser/gist%d", i+1),
+						Name:      fmt.Sprintf("Prompt %d", i+1),
+						Author:    "testuser",
+						Category:  "test",
+						Version:   "1.0",
+						UpdatedAt: time.Now(),
+					}
+				}
+				index := &models.Index{
+					Username:  "testuser",
+					Entries:   entries,
+					UpdatedAt: time.Now(),
+				}
+				if err := cacheManager.SaveIndex(index); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantOutput: []string{
+				"Gist URL", // Header should be present
+				"Prompt 21",
+				"https://gist.github.com/testuser/gist21",
+				"Prompt 22",
+				"https://gist.github.com/testuser/gist22",
+				"Page 2 of 2",
+			},
+			wantErr: false,
+		},
+		{
+			name: "truncates long gist URLs",
+			args: []string{"list"},
+			setupCache: func(t *testing.T, cacheManager *cache.Manager) {
+				// Create entry with very long URL
+				longGistID := "abcdefghijklmnopqrstuvwxyz012345678901234567890"
+				index := &models.Index{
+					Username: "testuser",
+					Entries: []models.IndexEntry{
+						{
+							GistID:    longGistID,
+							GistURL:   fmt.Sprintf("https://gist.github.com/verylongusername123456789/%s", longGistID),
+							Name:      "Test Prompt with Long URL",
+							Author:    "verylongusername",
+							Category:  "testing",
+							Version:   "1.0",
+							UpdatedAt: time.Now(),
+						},
+					},
+					UpdatedAt: time.Now(),
+				}
+				if err := cacheManager.SaveIndex(index); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantOutput: []string{
+				"Gist URL",
+				"Test Prompt with Long URL",
+				// Should contain truncated URL
+				"...",
 			},
 			wantErr: false,
 		},

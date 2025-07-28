@@ -79,6 +79,56 @@ func TestGetCommand(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "displays gist URL in search results",
+			args: []string{"get", "coding"},
+			setupCache: func(t *testing.T, cacheManager *cache.Manager) {
+				index := &models.Index{
+					Username: "testuser",
+					Entries: []models.IndexEntry{
+						{
+							GistID:      "abc123def456",
+							GistURL:     "https://gist.github.com/testuser/abc123def456",
+							Name:        "Coding Assistant",
+							Author:      "testuser",
+							Category:    "development",
+							Version:     "1.0",
+							Description: "Help with programming tasks",
+							Tags:        []string{"programming", "assistant"},
+							UpdatedAt:   time.Now(),
+						},
+						{
+							GistID:      "789xyz012",
+							GistURL:     "https://gist.github.com/testuser/789xyz012",
+							Name:        "Email Writer",
+							Author:      "testuser",
+							Category:    "writing",
+							Version:     "1.0",
+							Description: "Professional email templates",
+							Tags:        []string{"email", "writing"},
+							UpdatedAt:   time.Now(),
+						},
+					},
+					UpdatedAt: time.Now(),
+				}
+				// Save prompts with content
+				for i := range index.Entries {
+					savePromptToCache(t, cacheManager, index.Entries[i], fmt.Sprintf("Content for %s", index.Entries[i].Name))
+				}
+				if err := cacheManager.SaveIndex(index); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantOutput: []string{
+				"Found 1 prompt(s):",
+				"[1] Coding Assistant by testuser",
+				"Category: development",
+				"Tags: programming, assistant",
+				"Description: Help with programming tasks",
+				"Gist URL: https://gist.github.com/testuser/abc123def456",
+			},
+			wantErr: false,
+		},
+		{
 			name: "searches by category",
 			args: []string{"get", "writing"},
 			setupCache: func(t *testing.T, cacheManager *cache.Manager) {

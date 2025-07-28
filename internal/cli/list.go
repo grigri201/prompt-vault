@@ -14,6 +14,17 @@ import (
 // For testing
 var getCachePathFunc = cache.GetCachePath
 
+// truncateURL truncates a URL to fit within maxLength, showing the end of the URL
+func truncateURL(url string, maxLength int) string {
+	if len(url) <= maxLength || maxLength < 10 {
+		return url
+	}
+	
+	// Keep the end of the URL which usually contains the important gist ID
+	// Format: "...endOfURL"
+	return "..." + url[len(url)-(maxLength-3):]
+}
+
 // newListCmd creates the list command
 func newListCmd() *cobra.Command {
 	var page int
@@ -78,19 +89,22 @@ func runList(cmd *cobra.Command, page int) error {
 	defer w.Flush()
 
 	// Print header
-	fmt.Fprintln(w, "Name\tAuthor\tCategory\tVersion\tUpdated")
-	fmt.Fprintln(w, "----\t------\t--------\t-------\t-------")
+	fmt.Fprintln(w, "Name\tAuthor\tCategory\tVersion\tUpdated\tGist URL")
+	fmt.Fprintln(w, "----\t------\t--------\t-------\t-------\t--------")
 
 	// Print entries for current page
+	const maxURLLength = 50 // Maximum length for URL display
 	for i := startIdx; i < endIdx; i++ {
 		entry := index.Entries[i]
 		updated := entry.UpdatedAt.Format("2006-01-02")
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		truncatedURL := truncateURL(entry.GistURL, maxURLLength)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			entry.Name,
 			entry.Author,
 			entry.Category,
 			entry.Version,
 			updated,
+			truncatedURL,
 		)
 	}
 
