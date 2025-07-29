@@ -36,5 +36,7 @@ Thumbs.db
 ~/.config/prompt-vault/
 ~/.cache/prompt-vault/
 
-# Prompt directory
+# custom directory
 prompt/
+reports/
+test_prompts/
