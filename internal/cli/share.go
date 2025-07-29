@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/grigri201/prompt-vault/internal/auth"
@@ -33,14 +34,7 @@ func isGistID(input string) bool {
 
 // formatTags formats a slice of tags into a comma-separated string
 func formatTags(tags []string) string {
-	result := ""
-	for i, tag := range tags {
-		if i > 0 {
-			result += ", "
-		}
-		result += tag
-	}
-	return result
+	return strings.Join(tags, ", ")
 }
 
 type shareOptions struct {
@@ -244,35 +238,8 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 			return fmt.Errorf("No prompts found matching '%s'", opts.gistID)
 		}
 		
-		if len(matches) == 1 {
-			// Single match - ask for confirmation
-			matchedEntry := index.Entries[matches[0]]
-			fmt.Fprintf(cmd.OutOrStdout(), "Found 1 prompt matching '%s':\n\n", opts.gistID)
-			fmt.Fprintf(cmd.OutOrStdout(), "%s by %s\n", matchedEntry.Name, matchedEntry.Author)
-			fmt.Fprintf(cmd.OutOrStdout(), "Category: %s\n", matchedEntry.Category)
-			if len(matchedEntry.Tags) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Tags: %s\n", formatTags(matchedEntry.Tags))
-			}
-			if matchedEntry.Description != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Description: %s\n", matchedEntry.Description)
-			}
-			fmt.Fprintln(cmd.OutOrStdout())
-			
-			// Ask for confirmation
-			confirmMsg := "Share this prompt?"
-			uiAdapter := &cliUI{cmd: cmd}
-			confirmed, err := uiAdapter.Confirm(confirmMsg)
-			if err != nil {
-				return errors.WrapWithMessage(err, "failed to get confirmation")
-			}
-			if !confirmed {
-				fmt.Fprintln(cmd.OutOrStdout(), "Share cancelled.")
-				return nil
-			}
-			
-			opts.gistID = matchedEntry.GistID
-		} else {
-			// Multiple matches - show selection
+		// Show all matches with selector (even for single match)
+		if len(matches) >= 1 {
 			fmt.Fprintf(cmd.OutOrStdout(), "Found %d prompt(s) matching '%s':\n\n", len(matches), opts.gistID)
 			
 			// Create display items

@@ -240,7 +240,7 @@ func (m *Manager) createPublicGist(ctx context.Context, prompt *models.Prompt) (
 	fullContent := formatPromptWithParent(&meta, prompt.Content)
 
 	// Create gist name from prompt name
-	gistName := fmt.Sprintf("%s.yaml", strings.ReplaceAll(strings.ToLower(meta.Name), " ", "-"))
+	gistName := strings.ReplaceAll(strings.ToLower(meta.Name), " ", "-")
 
 	// Use description from prompt or create a default one
 	description := meta.Description
@@ -319,7 +319,7 @@ func (m *Manager) updatePublicGist(ctx context.Context, gistID string, prompt *m
 	fullContent := formatPromptWithParent(&meta, prompt.Content)
 
 	// Create gist name from prompt name
-	gistName := fmt.Sprintf("%s.yaml", strings.ReplaceAll(strings.ToLower(meta.Name), " ", "-"))
+	gistName := strings.ReplaceAll(strings.ToLower(meta.Name), " ", "-")
 
 	// Use description from prompt or create a default one
 	description := meta.Description

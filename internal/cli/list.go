@@ -2,7 +2,7 @@ package cli
 
 import (
 	"fmt"
-	"text/tabwriter"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -13,17 +13,6 @@ import (
 
 // For testing
 var getCachePathFunc = cache.GetCachePath
-
-// truncateURL truncates a URL to fit within maxLength, showing the end of the URL
-func truncateURL(url string, maxLength int) string {
-	if len(url) <= maxLength || maxLength < 10 {
-		return url
-	}
-	
-	// Keep the end of the URL which usually contains the important gist ID
-	// Format: "...endOfURL"
-	return "..." + url[len(url)-(maxLength-3):]
-}
 
 // newListCmd creates the list command
 func newListCmd() *cobra.Command {
@@ -84,32 +73,26 @@ func runList(cmd *cobra.Command, page int) error {
 		endIdx = totalItems
 	}
 
-	// Create table writer
-	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
-	defer w.Flush()
-
-	// Print header
-	fmt.Fprintln(w, "Name\tAuthor\tCategory\tVersion\tUpdated\tGist URL")
-	fmt.Fprintln(w, "----\t------\t--------\t-------\t-------\t--------")
-
-	// Print entries for current page
-	const maxURLLength = 50 // Maximum length for URL display
+	// Print entries for current page in a detailed format
 	for i := startIdx; i < endIdx; i++ {
 		entry := index.Entries[i]
-		updated := entry.UpdatedAt.Format("2006-01-02")
-		truncatedURL := truncateURL(entry.GistURL, maxURLLength)
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			entry.Name,
-			entry.Author,
-			entry.Category,
-			entry.Version,
-			updated,
-			truncatedURL,
-		)
+		fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
+		fmt.Fprintf(cmd.OutOrStdout(), "    Category: %s\n", entry.Category)
+		if len(entry.Tags) > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "    Tags: %s\n", strings.Join(entry.Tags, ", "))
+		}
+		if entry.Version != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "    Version: %s\n", entry.Version)
+		}
+		if entry.Description != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "    Description: %s\n", entry.Description)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "    Updated: %s\n", entry.UpdatedAt.Format("2006-01-02"))
+		if entry.GistURL != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "    Gist URL: %s\n", entry.GistURL)
+		}
+		fmt.Fprintln(cmd.OutOrStdout())
 	}
-
-	// Flush table before pagination info
-	w.Flush()
 
 	// Print pagination info
 	if totalPages > 1 {
