@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -37,6 +38,8 @@ func TestSyncCommand(t *testing.T) {
 				"Starting synchronization",
 				"No prompts found in index",
 				"Upload prompts using 'pv upload' to get started",
+				"Sync completed successfully!",
+				"Sync cache files to",
 			},
 			wantErr: false,
 		},
@@ -74,6 +77,7 @@ func TestSyncCommand(t *testing.T) {
 				"Sync completed successfully",
 				"Downloaded: 2 prompts",
 				"Total prompts: 2",
+				"Sync cache files to",
 			},
 			wantErr: false,
 		},
@@ -116,6 +120,23 @@ func TestSyncCommand(t *testing.T) {
 			wantOutput: []string{
 				"Starting synchronization",
 				"No prompts found in index",
+				"Sync completed successfully!",
+				"Sync cache files to",
+			},
+			wantErr: false,
+		},
+		{
+			name: "creates cache directory if missing",
+			args: []string{"sync"},
+			setupCache: func(t *testing.T, cacheManager *cache.Manager) {
+				// Don't initialize cache, to simulate missing directory
+			},
+			wantOutput: []string{
+				"Starting synchronization",
+				"Cache directory created at",
+				"No prompts found in index",
+				"Sync completed successfully!",
+				"Sync cache files to",
 			},
 			wantErr: false,
 		},
@@ -127,8 +148,12 @@ func TestSyncCommand(t *testing.T) {
 			tempDir := t.TempDir()
 			cacheDir := filepath.Join(tempDir, ".cache", "prompt-vault", "prompts")
 			cacheManager := cache.NewManagerWithPath(cacheDir)
-			if err := cacheManager.InitializeCache(); err != nil {
-				t.Fatal(err)
+			
+			// Only initialize cache if not testing missing directory
+			if tt.name != "creates cache directory if missing" {
+				if err := cacheManager.InitializeCache(); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			// Setup cache if needed
@@ -174,6 +199,13 @@ func TestSyncCommand(t *testing.T) {
 				updatedIndex, _ := cacheManager.GetIndex()
 				if updatedIndex != nil && updatedIndex.UpdatedAt.IsZero() {
 					t.Error("Index UpdatedAt was not set after sync")
+				}
+			}
+
+			// Verify cache directory was created for missing directory test
+			if tt.name == "creates cache directory if missing" && err == nil {
+				if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+					t.Error("Cache directory was not created")
 				}
 			}
 		})
