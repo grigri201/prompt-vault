@@ -63,24 +63,24 @@ func TestGetCommand_GistURLDisplay(t *testing.T) {
 					Username: "testuser",
 					Entries: []models.IndexEntry{
 						{
-							GistID:      "test123",
-							GistURL:     "https://gist.github.com/testuser/test123",
-							Name:        "Test Prompt 1",
-							Author:      "testuser",
-							Category:    "testing",
-							Version:     "1.0",
-							Tags:        []string{"test"},
-							UpdatedAt:   time.Now(),
+							GistID:    "test123",
+							GistURL:   "https://gist.github.com/testuser/test123",
+							Name:      "Test Prompt 1",
+							Author:    "testuser",
+							Category:  "testing",
+							Version:   "1.0",
+							Tags:      []string{"test"},
+							UpdatedAt: time.Now(),
 						},
 						{
-							GistID:      "test456",
-							GistURL:     "https://gist.github.com/testuser/test456",
-							Name:        "Test Prompt 2",
-							Author:      "testuser",
-							Category:    "testing",
-							Version:     "1.0",
-							Tags:        []string{"test"},
-							UpdatedAt:   time.Now(),
+							GistID:    "test456",
+							GistURL:   "https://gist.github.com/testuser/test456",
+							Name:      "Test Prompt 2",
+							Author:    "testuser",
+							Category:  "testing",
+							Version:   "1.0",
+							Tags:      []string{"test"},
+							UpdatedAt: time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
@@ -195,7 +195,7 @@ func TestGetCommand_GistURLInSuccessMessage(t *testing.T) {
 	// Since the test environment doesn't have TTY support, we'll need to
 	// implement this test differently or skip it for now
 	t.Skip("Clipboard success message test requires TTY support")
-	
+
 	// Expected behavior: After copying to clipboard, the success message should include:
 	// ✓ Prompt copied to clipboard!
 	// Gist URL: https://gist.github.com/testuser/abc123def456

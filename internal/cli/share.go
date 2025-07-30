@@ -22,13 +22,13 @@ func isGistID(input string) bool {
 	if len(input) != 32 {
 		return false
 	}
-	
+
 	for _, c := range input {
 		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -104,9 +104,13 @@ type shareManager interface {
 func runShare(cmd *cobra.Command, opts *shareOptions) error {
 	// Initialize dependencies
 	authManager := auth.NewManager()
-	token, username, err := authManager.GetToken()
+	token, err := authManager.GetToken()
 	if err != nil {
 		return errors.WrapWithMessage(err, errors.ErrMsgAuthRequired)
+	}
+	username, err := authManager.GetUsername()
+	if err != nil {
+		return errors.WrapWithMessage(err, "failed to get username")
 	}
 
 	gistClient, err := gist.NewClient(token)
@@ -131,7 +135,7 @@ type cliUI struct {
 func (u *cliUI) Confirm(message string) (bool, error) {
 	// Print the message
 	u.cmd.Println(message)
-	
+
 	// Create a selector model for confirmation
 	choices := []string{"Yes", "No"}
 	model := ui.NewSelector(choices)
@@ -140,7 +144,7 @@ func (u *cliUI) Confirm(message string) (bool, error) {
 	p := tea.NewProgram(model)
 	finalModel, err := p.Run()
 	if err != nil {
-		return false, fmt.Errorf("failed to run confirmation prompt: %w", err)
+		return false, errors.WrapError("runConfirmationPrompt", err)
 	}
 
 	// Check if user selected "Yes"
@@ -156,29 +160,29 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 		// Get cache manager
 		cachePath := getCachePathFunc()
 		cacheManager := cache.NewManagerWithPath(cachePath)
-		
+
 		// Load index
 		index, err := cacheManager.GetIndex()
 		if err != nil {
 			return errors.WrapWithMessage(err, "failed to load index")
 		}
-		
+
 		// Check if index is empty
 		if index == nil || len(index.Entries) == 0 {
 			fmt.Fprintln(cmd.OutOrStdout(), "No prompts found.")
 			fmt.Fprintln(cmd.OutOrStdout(), "Use 'pv sync' to download prompts from GitHub.")
 			return nil
 		}
-		
+
 		// Display all prompts for selection
 		fmt.Fprintf(cmd.OutOrStdout(), "Found %d prompt(s) to share:\n\n", len(index.Entries))
-		
+
 		// Create display items
 		items := make([]string, len(index.Entries))
 		for i, entry := range index.Entries {
 			items[i] = fmt.Sprintf("[%d] %s by %s", i+1, entry.Name, entry.Author)
 		}
-		
+
 		// Show details for each prompt
 		for i, entry := range index.Entries {
 			fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
@@ -193,7 +197,7 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 				fmt.Fprintln(cmd.OutOrStdout())
 			}
 		}
-		
+
 		// Create selector for prompts
 		selector := ui.NewSelector(items)
 		p := tea.NewProgram(selector)
@@ -201,14 +205,14 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 		if err != nil {
 			return errors.WrapWithMessage(err, "failed to run selector")
 		}
-		
+
 		// Check if user made a selection
 		selectorModel := finalModel.(ui.SelectorModel)
 		if !selectorModel.IsConfirmed() {
 			fmt.Fprintln(cmd.OutOrStdout(), "\nNo selection made.")
 			return nil
 		}
-		
+
 		// Get the selected prompt's gist ID
 		selectedIdx := selectorModel.Selected
 		opts.gistID = index.Entries[selectedIdx].GistID
@@ -216,39 +220,39 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 		// If argument is not a gist ID, treat it as a keyword search
 		cachePath := getCachePathFunc()
 		cacheManager := cache.NewManagerWithPath(cachePath)
-		
+
 		// Load index
 		index, err := cacheManager.GetIndex()
 		if err != nil {
 			return errors.WrapWithMessage(err, "failed to load index")
 		}
-		
+
 		// Check if index is empty
 		if index == nil || len(index.Entries) == 0 {
 			fmt.Fprintln(cmd.OutOrStdout(), "No prompts found.")
 			fmt.Fprintln(cmd.OutOrStdout(), "Use 'pv sync' to download prompts from GitHub.")
 			return nil
 		}
-		
+
 		// Search for matching prompts
 		searcher := search.Searcher{}
 		matches := searcher.SearchEntries(index.Entries, opts.gistID)
-		
+
 		if len(matches) == 0 {
-			return fmt.Errorf("No prompts found matching '%s'", opts.gistID)
+			return errors.NewValidationErrorMsg("searchPrompts", fmt.Sprintf("No prompts found matching '%s'", opts.gistID))
 		}
-		
+
 		// Show all matches with selector (even for single match)
 		if len(matches) >= 1 {
 			fmt.Fprintf(cmd.OutOrStdout(), "Found %d prompt(s) matching '%s':\n\n", len(matches), opts.gistID)
-			
+
 			// Create display items
 			items := make([]string, len(matches))
 			for i, matchIdx := range matches {
 				entry := index.Entries[matchIdx]
 				items[i] = fmt.Sprintf("[%d] %s by %s", i+1, entry.Name, entry.Author)
 			}
-			
+
 			// Show details for each matching prompt
 			for i, matchIdx := range matches {
 				entry := index.Entries[matchIdx]
@@ -264,7 +268,7 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 					fmt.Fprintln(cmd.OutOrStdout())
 				}
 			}
-			
+
 			// Create selector for prompts
 			selector := ui.NewSelector(items)
 			p := tea.NewProgram(selector)
@@ -272,14 +276,14 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 			if err != nil {
 				return errors.WrapWithMessage(err, "failed to run selector")
 			}
-			
+
 			// Check if user made a selection
 			selectorModel := finalModel.(ui.SelectorModel)
 			if !selectorModel.IsConfirmed() {
 				fmt.Fprintln(cmd.OutOrStdout(), "\nNo selection made.")
 				return nil
 			}
-			
+
 			// Get the selected prompt's gist ID
 			selectedIdx := selectorModel.Selected
 			opts.gistID = index.Entries[matches[selectedIdx]].GistID

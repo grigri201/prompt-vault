@@ -45,6 +45,9 @@ Usage:
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
 
+	// Apply auto-sync middleware
+	WrapWithAutoSync(cmd)
+	
 	return cmd
 }
 
@@ -100,7 +103,7 @@ func runDeleteWithSelection(cmd *cobra.Command, input string, force bool) error 
 	// If no input provided, show all prompts for selection
 	if input == "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "Found %d prompt(s) to delete:\n\n", len(index.Entries))
-		
+
 		// Create selector items
 		selectorItems := make([]string, len(index.Entries))
 		for i, entry := range index.Entries {
@@ -113,33 +116,33 @@ func runDeleteWithSelection(cmd *cobra.Command, input string, force bool) error 
 				fmt.Fprintf(cmd.OutOrStdout(), "    Description: %s\n", entry.Description)
 			}
 			fmt.Fprintln(cmd.OutOrStdout())
-			
+
 			selectorItems[i] = fmt.Sprintf("%s by %s", entry.Name, entry.Author)
 		}
-		
+
 		// Create and run selector
 		selector := ui.NewSelector(selectorItems)
 		fmt.Fprintln(cmd.OutOrStdout())
-		
+
 		p := tea.NewProgram(selector)
 		finalModel, err := p.Run()
 		if err != nil {
 			return errors.WrapWithMessage(err, "failed to run selector")
 		}
-		
+
 		// Check if user made a selection
 		selectorModel := finalModel.(ui.SelectorModel)
 		if !selectorModel.IsConfirmed() {
 			fmt.Fprintln(cmd.OutOrStdout(), "\nNo selection made.")
 			return nil
 		}
-		
+
 		entryIndex = selectorModel.Selected
 		targetEntry = &index.Entries[entryIndex]
 	} else if isGistIDOrURL(input) {
 		// Handle gist ID or URL
 		gistID := extractGistIDFromURL(input)
-		
+
 		// Find by gist ID
 		for i, entry := range index.Entries {
 			if entry.GistID == gistID {
@@ -148,7 +151,7 @@ func runDeleteWithSelection(cmd *cobra.Command, input string, force bool) error 
 				break
 			}
 		}
-		
+
 		if targetEntry == nil {
 			fmt.Fprintf(cmd.OutOrStderr(), "Error: Prompt with gist ID '%s' not found.\n", gistID)
 			return errors.NewValidationErrorMsg("delete", "prompt not found")
@@ -157,16 +160,16 @@ func runDeleteWithSelection(cmd *cobra.Command, input string, force bool) error 
 		// Search by keyword
 		searcher := search.NewSearcher()
 		matches := searcher.SearchEntries(index.Entries, input)
-		
+
 		if len(matches) == 0 {
 			fmt.Fprintf(cmd.OutOrStderr(), "No prompts found matching '%s'.\n", input)
 			return errors.NewValidationErrorMsg("delete", "prompt not found")
 		}
-		
+
 		// Always show selection (even for single match)
 		if len(matches) >= 1 {
 			fmt.Fprintf(cmd.OutOrStdout(), "Found %d prompt(s) matching '%s':\n\n", len(matches), input)
-			
+
 			// Create selector items
 			selectorItems := make([]string, len(matches))
 			for i, idx := range matches {
@@ -180,27 +183,27 @@ func runDeleteWithSelection(cmd *cobra.Command, input string, force bool) error 
 					fmt.Fprintf(cmd.OutOrStdout(), "    Description: %s\n", entry.Description)
 				}
 				fmt.Fprintln(cmd.OutOrStdout())
-				
+
 				selectorItems[i] = fmt.Sprintf("%s by %s", entry.Name, entry.Author)
 			}
-			
+
 			// Create and run selector
 			selector := ui.NewSelector(selectorItems)
 			fmt.Fprintln(cmd.OutOrStdout())
-			
+
 			p := tea.NewProgram(selector)
 			finalModel, err := p.Run()
 			if err != nil {
 				return errors.WrapWithMessage(err, "failed to run selector")
 			}
-			
+
 			// Check if user made a selection
 			selectorModel := finalModel.(ui.SelectorModel)
 			if !selectorModel.IsConfirmed() {
 				fmt.Fprintln(cmd.OutOrStdout(), "\nNo selection made.")
 				return nil
 			}
-			
+
 			entryIndex = matches[selectorModel.Selected]
 			targetEntry = &index.Entries[entryIndex]
 		}
@@ -229,7 +232,7 @@ func runDeleteSimple(cmd *cobra.Command, targetEntry *models.IndexEntry, entryIn
 
 	// Get auth token
 	authManager := auth.NewManager()
-	token, username, err := authManager.GetToken()
+	token, err := authManager.GetToken()
 	if err != nil {
 		return errors.WrapWithMessage(err, "failed to get authentication token")
 	}
@@ -264,11 +267,7 @@ func runDeleteSimple(cmd *cobra.Command, targetEntry *models.IndexEntry, entryIn
 		fmt.Fprintf(cmd.OutOrStderr(), "Warning: Failed to delete from local cache: %v\n", err)
 	}
 
-	// Update index on GitHub
-	if _, err := client.UpdateIndexGist(ctx, username, index); err != nil {
-		// Non-fatal error, just log it
-		fmt.Fprintf(cmd.OutOrStderr(), "Warning: Failed to update index on GitHub: %v\n", err)
-	}
+	// GitHub index update will be handled by auto-sync middleware
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Successfully deleted prompt '%s'.\n", targetEntry.Name)
 

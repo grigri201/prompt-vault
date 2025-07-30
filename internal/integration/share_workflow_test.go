@@ -15,7 +15,7 @@ func TestShareWorkflow_EndToEnd(t *testing.T) {
 
 	// Setup mock gist client
 	mockClient := &MockGistClient{
-		gists: make(map[string]*github.Gist),
+		gists:     make(map[string]*github.Gist),
 		userGists: []*github.Gist{},
 	}
 

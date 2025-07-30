@@ -216,14 +216,14 @@ func TestSearcher_SearchEntries(t *testing.T) {
 			result := searcher.SearchEntries(entries, tt.keyword)
 
 			if len(result) != len(tt.expectedIndices) {
-				t.Errorf("SearchEntries(%q) returned %d indices, want %d", 
+				t.Errorf("SearchEntries(%q) returned %d indices, want %d",
 					tt.keyword, len(result), len(tt.expectedIndices))
 				return
 			}
 
 			for i, idx := range result {
 				if i >= len(tt.expectedIndices) || idx != tt.expectedIndices[i] {
-					t.Errorf("SearchEntries(%q) index[%d] = %d, want %d", 
+					t.Errorf("SearchEntries(%q) index[%d] = %d, want %d",
 						tt.keyword, i, idx, tt.expectedIndices[i])
 				}
 			}

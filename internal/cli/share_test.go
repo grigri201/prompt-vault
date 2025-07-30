@@ -13,7 +13,7 @@ import (
 
 // MockShareManager is a mock implementation of the share manager
 type MockShareManager struct {
-	SharePromptFunc func(ctx context.Context, privateGistID string) (*share.ShareResult, error)
+	SharePromptFunc  func(ctx context.Context, privateGistID string) (*share.ShareResult, error)
 	SharePromptCalls []string
 }
 
@@ -27,12 +27,12 @@ func (m *MockShareManager) SharePrompt(ctx context.Context, privateGistID string
 
 func TestShareCommand_Execute(t *testing.T) {
 	tests := []struct {
-		name             string
-		args             []string
-		shareFunc        func(ctx context.Context, privateGistID string) (*share.ShareResult, error)
-		expectError      bool
-		expectedOutput   string
-		expectedCalls    []string
+		name           string
+		args           []string
+		shareFunc      func(ctx context.Context, privateGistID string) (*share.ShareResult, error)
+		expectError    bool
+		expectedOutput string
+		expectedCalls  []string
 	}{
 		{
 			name: "successful new share",
@@ -65,8 +65,8 @@ func TestShareCommand_Execute(t *testing.T) {
 		{
 			name:           "missing gist ID argument shows list",
 			args:           []string{},
-			expectError:    true,  // Will get TTY error in test environment
-			expectedOutput: "Found 1 prompt(s) to share",  // Default test data has 1 prompt
+			expectError:    true,                         // Will get TTY error in test environment
+			expectedOutput: "Found 1 prompt(s) to share", // Default test data has 1 prompt
 			expectedCalls:  []string{},
 		},
 		{
@@ -145,7 +145,7 @@ func TestShareCommand_Execute(t *testing.T) {
 func TestShareCommand_Integration(t *testing.T) {
 	// Test that the command is properly integrated with root command
 	root := &cobra.Command{Use: "pv"}
-	
+
 	// Mock dependencies
 	mockGistClient := &MockGistClient{
 		GetGistFunc: func(ctx context.Context, gistID string) (*github.Gist, error) {
@@ -244,4 +244,3 @@ func (m *MockUI) Confirm(message string) (bool, error) {
 	}
 	return false, nil
 }
-

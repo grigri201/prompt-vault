@@ -83,7 +83,7 @@ func runGet(cmd *cobra.Command, args []string) error {
 			fmt.Fprintln(cmd.OutOrStdout(), "    Gist URL: ")
 		}
 		fmt.Fprintln(cmd.OutOrStdout())
-		
+
 		// Build selector item
 		selectorItems[i] = fmt.Sprintf("%s by %s", entry.Name, entry.Author)
 	}
@@ -91,7 +91,7 @@ func runGet(cmd *cobra.Command, args []string) error {
 	// Create and run selector
 	selector := ui.NewSelector(selectorItems)
 	fmt.Fprintln(cmd.OutOrStdout())
-	
+
 	p := tea.NewProgram(selector)
 	finalModel, err := p.Run()
 	if err != nil {
@@ -121,15 +121,15 @@ func runGet(cmd *cobra.Command, args []string) error {
 	if selectedEntry.GistURL != "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "Gist URL: %s\n", selectedEntry.GistURL)
 	}
-	
+
 	// Parse variables in the prompt
 	vars := parser.ExtractVariables(prompt.Content)
-	
+
 	// If there are variables, show form to collect values
 	var finalContent string
 	if len(vars) > 0 {
 		fmt.Fprintf(cmd.OutOrStdout(), "\nPrompt contains %d variable(s) to fill:\n", len(vars))
-		
+
 		// Create and run form
 		form := ui.NewForm("Fill in the variables", vars)
 		formProgram := tea.NewProgram(form)
@@ -137,14 +137,14 @@ func runGet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return errors.WrapWithMessage(err, "failed to run form")
 		}
-		
+
 		// Check if form was submitted
 		finalForm := formModel.(ui.FormModel)
 		if !finalForm.IsSubmitted() {
 			fmt.Fprintln(cmd.OutOrStdout(), "\nForm cancelled.")
 			return nil
 		}
-		
+
 		// Replace variables with values
 		values := finalForm.GetValues()
 		finalContent = parser.FillVariables(prompt.Content, values)
@@ -167,4 +167,3 @@ func runGet(cmd *cobra.Command, args []string) error {
 
 	return nil
 }
-

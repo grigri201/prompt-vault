@@ -270,7 +270,7 @@ func TestWrapWithMessage(t *testing.T) {
 			if got.Error() != tt.wantMsg {
 				t.Errorf("WrapWithMessage() error = %v, want %v", got.Error(), tt.wantMsg)
 			}
-			
+
 			// For AppError, verify type is preserved
 			if appErr, ok := tt.err.(*AppError); ok {
 				var gotAppErr *AppError

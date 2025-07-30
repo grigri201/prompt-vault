@@ -106,9 +106,14 @@ func validateAndSaveToken(ctx context.Context, authManager *auth.Manager, token 
 		return "", err
 	}
 
-	// Save the validated token with username
-	if err := authManager.SaveToken(token, username); err != nil {
+	// Save the validated token
+	if err := authManager.SaveToken(token); err != nil {
 		return "", errors.WrapWithMessage(err, "failed to save token")
+	}
+
+	// Save the username
+	if err := authManager.SaveUsername(username); err != nil {
+		return "", errors.WrapWithMessage(err, "failed to save username")
 	}
 
 	return username, nil

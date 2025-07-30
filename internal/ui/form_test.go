@@ -202,7 +202,7 @@ func TestFormMultiByteInput(t *testing.T) {
 			f = model.(FormModel)
 
 			if f.Fields[0].Value != tt.wantAfter {
-				t.Errorf("After %d backspaces, field value = %q, want %q", 
+				t.Errorf("After %d backspaces, field value = %q, want %q",
 					tt.backspaces, f.Fields[0].Value, tt.wantAfter)
 			}
 		})

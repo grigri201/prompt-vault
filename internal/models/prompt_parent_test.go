@@ -1,14 +1,14 @@
 package models
 
 import (
-	"testing"
 	"gopkg.in/yaml.v3"
+	"testing"
 )
 
 func TestPromptMeta_WithParentField(t *testing.T) {
 	tests := []struct {
-		name     string
-		meta     PromptMeta
+		name      string
+		meta      PromptMeta
 		hasParent bool
 	}{
 		{
@@ -139,7 +139,7 @@ description: Test description
 			}
 
 			yamlStr := string(data)
-			
+
 			// Check if parent field is present when expected
 			containsParent := contains(yamlStr, "parent:")
 			if tt.wantParent && !containsParent {
@@ -229,11 +229,11 @@ parent: ""
 		t.Run(tt.name, func(t *testing.T) {
 			var meta PromptMeta
 			err := yaml.Unmarshal([]byte(tt.yamlContent), &meta)
-			
+
 			if (err != nil) != tt.wantError {
 				t.Errorf("Unmarshal() error = %v, wantError %v", err, tt.wantError)
 			}
-			
+
 			if !tt.wantError {
 				// Compare fields
 				if meta.Name != tt.expectedMeta.Name {

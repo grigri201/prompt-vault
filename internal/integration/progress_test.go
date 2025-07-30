@@ -130,7 +130,7 @@ Import test content`),
 func TestLongRunningOperation(t *testing.T) {
 	// Test that operations handle delays gracefully
 	startTime := time.Now()
-	
+
 	// Simulate a long operation with multiple steps
 	steps := []struct {
 		message string
@@ -154,7 +154,7 @@ func TestLongRunningOperation(t *testing.T) {
 	if totalTime < expectedMinTime {
 		t.Errorf("Operation completed too quickly: %v < %v", totalTime, expectedMinTime)
 	}
-	
+
 	t.Logf("Long operation completed in %v", totalTime)
 }
 
@@ -168,13 +168,12 @@ type MockProgressUI struct {
 
 func (m *MockProgressUI) Confirm(message string) (bool, error) {
 	m.confirmCalls = append(m.confirmCalls, message)
-	
+
 	if m.confirmIndex < len(m.confirmResponses) {
 		response := m.confirmResponses[m.confirmIndex]
 		m.confirmIndex++
 		return response, nil
 	}
-	
+
 	return false, nil
 }
-

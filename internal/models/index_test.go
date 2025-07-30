@@ -320,7 +320,7 @@ func TestIndex_BackwardCompatibility(t *testing.T) {
 	if len(index.Entries) != 1 {
 		t.Errorf("Expected 1 entry, got %d", len(index.Entries))
 	}
-	
+
 	// ImportedEntries should be empty (nil is acceptable for backward compatibility)
 	if index.ImportedEntries != nil && len(index.ImportedEntries) != 0 {
 		t.Errorf("Expected 0 imported entries for old format, got %d", len(index.ImportedEntries))

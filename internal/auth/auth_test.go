@@ -129,7 +129,7 @@ func TestManager_SaveToken(t *testing.T) {
 				tt.setup(t, configPath)
 			}
 
-			err := m.SaveToken(tt.token, tt.username)
+			err := m.SaveTokenWithUsername(tt.token, tt.username)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SaveToken() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -219,7 +219,7 @@ func TestManager_GetToken(t *testing.T) {
 				tt.setup(t, configPath)
 			}
 
-			token, username, err := m.GetToken()
+			token, username, err := m.GetTokenWithUsername()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetToken() error = %v, wantErr %v", err, tt.wantErr)
 			}

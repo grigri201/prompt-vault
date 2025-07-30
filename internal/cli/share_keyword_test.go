@@ -73,7 +73,7 @@ func TestShareCommand_KeywordSearch(t *testing.T) {
 				"Found 3 prompt(s) matching 'test':",
 				"Test Prompt 1 by testuser",
 				"Category: development",
-				"Tags: test, dev",  
+				"Tags: test, dev",
 				"Description: A test prompt for development",
 				"Test Prompt 2 by testuser",
 				"Category: testing",
@@ -136,14 +136,14 @@ func TestShareCommand_KeywordSearch(t *testing.T) {
 					Username: "testuser",
 					Entries: []models.IndexEntry{
 						{
-							GistID:      "1234567890abcdef1234567890abcdef",
-							GistURL:     "https://gist.github.com/testuser/1234567890abcdef1234567890abcdef",
-							Name:        "Test Prompt",
-							Author:      "testuser",
-							Category:    "testing",
-							Version:     "1.0",
-							Tags:        []string{"test"},
-							UpdatedAt:   time.Now(),
+							GistID:    "1234567890abcdef1234567890abcdef",
+							GistURL:   "https://gist.github.com/testuser/1234567890abcdef1234567890abcdef",
+							Name:      "Test Prompt",
+							Author:    "testuser",
+							Category:  "testing",
+							Version:   "1.0",
+							Tags:      []string{"test"},
+							UpdatedAt: time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
@@ -164,13 +164,13 @@ func TestShareCommand_KeywordSearch(t *testing.T) {
 					Username: "testuser",
 					Entries: []models.IndexEntry{
 						{
-							GistID:      "abcdefabcdefabcdefabcdefabcdefab",
-							GistURL:     "https://gist.github.com/testuser/abcdefabcdefabcdefabcdefabcdefab",
-							Name:        "Specific Prompt",
-							Author:      "testuser",
-							Category:    "specific",
-							Version:     "1.0",
-							UpdatedAt:   time.Now(),
+							GistID:    "abcdefabcdefabcdefabcdefabcdefab",
+							GistURL:   "https://gist.github.com/testuser/abcdefabcdefabcdefabcdefabcdefab",
+							Name:      "Specific Prompt",
+							Author:    "testuser",
+							Category:  "specific",
+							Version:   "1.0",
+							UpdatedAt: time.Now(),
 						},
 						{
 							GistID:      "1234567890abcdef1234567890abcdef",
@@ -189,7 +189,7 @@ func TestShareCommand_KeywordSearch(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			keyword: "abcdefabcdefabcdefabcdefabcdefab", // This is a valid gist ID
+			keyword:    "abcdefabcdefabcdefabcdefabcdefab", // This is a valid gist ID
 			wantOutput: []string{
 				// Should attempt to share directly, not search
 			},
@@ -301,7 +301,7 @@ func TestShareCommand_KeywordSearchCancellation(t *testing.T) {
 	// This test would require mocking the selector interaction
 	// Since the test environment doesn't have TTY support, we'll skip it
 	t.Skip("Keyword search cancellation test requires TTY support")
-	
+
 	// Expected behavior: When user cancels selection after keyword search
 	// Output: "No selection made."
 	// No sharing should occur

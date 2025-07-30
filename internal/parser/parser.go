@@ -4,82 +4,31 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/models"
 	"gopkg.in/yaml.v3"
 )
 
 // ParseYAMLFrontMatter parses the YAML front matter from a prompt file
 // Returns the metadata, content, and any error
+// This function maintains backward compatibility while using the new YAMLParser internally
 func ParseYAMLFrontMatter(content string) (*models.PromptMeta, string, error) {
-	// Check if content starts with front matter delimiter
-	if !strings.HasPrefix(content, "---\n") && !strings.HasPrefix(content, "---\r\n") {
-		return nil, "", errors.NewParsingErrorMsg("ParseYAMLFrontMatter", "missing YAML front matter")
-	}
+	// Create a parser with strict mode to maintain backward compatibility
+	parser := NewYAMLParser(YAMLParserConfig{
+		Strict: true,
+	})
 
-	// Find the closing delimiter
-	// Handle both Unix and Windows line endings
-	content = strings.TrimPrefix(content, "---\n")
-	content = strings.TrimPrefix(content, "---\r\n")
-
-	// Find the end of front matter
-	endIndex := strings.Index(content, "\n---\n")
-	endIndexWin := strings.Index(content, "\r\n---\r\n")
-
-	var frontMatter string
-	var promptContent string
-
-	if endIndex == -1 && endIndexWin == -1 {
-		// Check if the entire content is just front matter
-		if strings.HasSuffix(content, "\n---") || strings.HasSuffix(content, "\r\n---") {
-			// Remove the trailing delimiter
-			frontMatter = strings.TrimSuffix(content, "\n---")
-			frontMatter = strings.TrimSuffix(frontMatter, "\r\n---")
-			promptContent = ""
-		} else {
-			return nil, "", errors.NewParsingErrorMsg("ParseYAMLFrontMatter", "unclosed YAML front matter")
-		}
-	} else {
-		// Determine which line ending style is used
-		if endIndexWin != -1 && (endIndex == -1 || endIndexWin < endIndex) {
-			frontMatter = content[:endIndexWin]
-			promptContent = content[endIndexWin+8:] // Skip "\r\n---\r\n"
-		} else {
-			frontMatter = content[:endIndex]
-			promptContent = content[endIndex+5:] // Skip "\n---\n"
-		}
-	}
-
-	// Parse YAML front matter
-	var meta models.PromptMeta
-	if err := yaml.Unmarshal([]byte(frontMatter), &meta); err != nil {
-		return nil, "", errors.WrapWithMessage(err, "failed to parse YAML front matter")
-	}
-
-	// Validate required fields
-	if err := meta.Validate(); err != nil {
-		return nil, "", errors.WrapWithMessage(err, "invalid front matter")
-	}
-
-	// Trim any leading/trailing whitespace from content
-	promptContent = strings.TrimSpace(promptContent)
-
-	return &meta, promptContent, nil
+	return parser.ParseFrontMatter(content)
 }
 
 // ParsePromptFile parses a complete prompt file and returns a Prompt object
+// This function maintains backward compatibility while using the new YAMLParser internally
 func ParsePromptFile(content string) (*models.Prompt, error) {
-	meta, promptContent, err := ParseYAMLFrontMatter(content)
-	if err != nil {
-		return nil, err
-	}
+	// Create a parser with strict mode to maintain backward compatibility
+	parser := NewYAMLParser(YAMLParserConfig{
+		Strict: true,
+	})
 
-	prompt := &models.Prompt{
-		PromptMeta: *meta,
-		Content:    promptContent,
-	}
-
-	return prompt, nil
+	return parser.ParsePromptFile(content)
 }
 
 // ExtractVariables extracts all unique variable names from a template content

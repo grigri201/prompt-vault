@@ -148,7 +148,7 @@ func TestSyncCommand(t *testing.T) {
 			tempDir := t.TempDir()
 			cacheDir := filepath.Join(tempDir, ".cache", "prompt-vault", "prompts")
 			cacheManager := cache.NewManagerWithPath(cacheDir)
-			
+
 			// Only initialize cache if not testing missing directory
 			if tt.name != "creates cache directory if missing" {
 				if err := cacheManager.InitializeCache(); err != nil {

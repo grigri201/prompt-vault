@@ -155,7 +155,7 @@ func TestConfigCommand_Integration(t *testing.T) {
 
 	// Check output
 	output := out.String()
-	
+
 	// Verify all expected information is present
 	expectedStrings := []string{
 		"Configuration Information:",
@@ -164,13 +164,13 @@ func TestConfigCommand_Integration(t *testing.T) {
 		"GitHub Username: johndoe",
 		"GitHub Token: ****** (set)",
 	}
-	
+
 	for _, expected := range expectedStrings {
 		if !strings.Contains(output, expected) {
 			t.Errorf("Expected output to contain %q, but got:\n%s", expected, output)
 		}
 	}
-	
+
 	// Verify token is masked
 	if strings.Contains(output, "ghp_1234567890abcdef") {
 		t.Errorf("Token should be masked but was found in output")
@@ -204,20 +204,20 @@ func TestConfigCommand_OutputFormat(t *testing.T) {
 	// Check output format
 	output := out.String()
 	lines := strings.Split(strings.TrimSpace(output), "\n")
-	
+
 	// Verify header format
 	if len(lines) < 2 {
 		t.Fatalf("Expected at least 2 lines of output, got %d", len(lines))
 	}
-	
+
 	if lines[0] != "Configuration Information:" {
 		t.Errorf("Expected first line to be 'Configuration Information:', got %q", lines[0])
 	}
-	
+
 	if lines[1] != "==========================" {
 		t.Errorf("Expected second line to be '==========================', got %q", lines[1])
 	}
-	
+
 	// Verify sections exist
 	expectedSections := []string{
 		"Config Directory:",
@@ -225,7 +225,7 @@ func TestConfigCommand_OutputFormat(t *testing.T) {
 		"Cache Directory:",
 		"Current Settings:",
 	}
-	
+
 	for _, section := range expectedSections {
 		if !strings.Contains(output, section) {
 			t.Errorf("Expected output to contain section %q", section)

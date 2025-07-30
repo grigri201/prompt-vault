@@ -8,15 +8,16 @@ import (
 	"github.com/grigri201/prompt-vault/internal/cache"
 	"github.com/grigri201/prompt-vault/internal/config"
 	"github.com/grigri201/prompt-vault/internal/gist"
+	"github.com/grigri201/prompt-vault/internal/interfaces"
 	"github.com/grigri201/prompt-vault/internal/paths"
 )
 
 // Container holds all application dependencies
 type Container struct {
 	PathManager   *paths.PathManager
-	CacheManager  *cache.Manager
-	ConfigManager *config.Manager
-	AuthManager   *auth.Manager
+	CacheManager  interfaces.CacheManager
+	ConfigManager *config.Manager // Keep concrete type to avoid circular dependency
+	AuthManager   interfaces.AuthManager
 	GistClient    *gist.Client
 	initialized   bool
 }

@@ -68,7 +68,7 @@ func (m *ProgressModel) View() string {
 
 	spinner := spinnerFrames[m.frame]
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	
+
 	return fmt.Sprintf("%s %s", style.Render(spinner), m.message)
 }
 
@@ -96,9 +96,9 @@ func NewProgress(message string) *Progress {
 		message: message,
 		frame:   0,
 	}
-	
+
 	program := tea.NewProgram(model)
-	
+
 	return &Progress{
 		program: program,
 		model:   model,
@@ -113,7 +113,7 @@ func (p *Progress) Start() error {
 			fmt.Printf("Progress indicator error: %v\n", err)
 		}
 	}()
-	
+
 	// Give it a moment to start
 	time.Sleep(50 * time.Millisecond)
 	return nil

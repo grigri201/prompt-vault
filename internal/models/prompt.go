@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/grigri201/prompt-vault/internal/errors"
@@ -16,6 +17,31 @@ type PromptMeta struct {
 	Version     string   `yaml:"version,omitempty" json:"version,omitempty"`
 	Description string   `yaml:"description,omitempty" json:"description,omitempty"`
 	Parent      string   `yaml:"parent,omitempty" json:"parent,omitempty"`
+	ID          string   `yaml:"id,omitempty" json:"id,omitempty"`
+}
+
+// ValidateID checks if the ID contains only valid characters
+func (m *PromptMeta) ValidateID() error {
+	if m.ID == "" {
+		return nil // ID is optional
+	}
+	
+	// ID can only contain alphanumeric characters, hyphens, and underscores
+	validID := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	if !validID.MatchString(m.ID) {
+		return errors.NewValidationErrorMsg("PromptMeta.ValidateID", 
+			"ID can only contain letters, numbers, hyphens, and underscores")
+	}
+	
+	// Check minimum and maximum length
+	if len(m.ID) < 3 {
+		return errors.NewValidationErrorMsg("PromptMeta.ValidateID", "ID must be at least 3 characters long")
+	}
+	if len(m.ID) > 100 {
+		return errors.NewValidationErrorMsg("PromptMeta.ValidateID", "ID must not exceed 100 characters")
+	}
+	
+	return nil
 }
 
 // Validate checks if all required fields are present and valid
@@ -32,6 +58,12 @@ func (m *PromptMeta) Validate() error {
 	if len(m.Tags) == 0 {
 		return errors.NewValidationErrorMsg("PromptMeta.Validate", "at least one tag is required")
 	}
+	
+	// Validate ID if present
+	if err := m.ValidateID(); err != nil {
+		return err
+	}
+	
 	return nil
 }
 
@@ -62,6 +94,7 @@ func (p *Prompt) ToIndexEntry() IndexEntry {
 		Tags:        p.Tags,
 		Version:     p.Version,
 		Description: p.Description,
+		ID:          p.ID,
 		UpdatedAt:   p.UpdatedAt,
 	}
 }
@@ -76,6 +109,7 @@ type IndexEntry struct {
 	Tags        []string  `json:"tags"`
 	Version     string    `json:"version"`
 	Description string    `json:"description"`
+	ID          string    `json:"id,omitempty"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 

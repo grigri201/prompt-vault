@@ -424,9 +424,9 @@ func TestImportManager_extractGistID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &Manager{}
-			
+
 			id, err := manager.extractGistID(tt.url)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Fatal("Expected error but got none")
@@ -448,10 +448,10 @@ func TestImportManager_extractGistID(t *testing.T) {
 
 func TestImportManager_validatePromptGist(t *testing.T) {
 	tests := []struct {
-		name          string
-		gist          *github.Gist
-		expectError   bool
-		errorContains string
+		name           string
+		gist           *github.Gist
+		expectError    bool
+		errorContains  string
 		validatePrompt func(t *testing.T, prompt *models.Prompt)
 	}{
 		{
@@ -529,9 +529,9 @@ Content`),
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &Manager{}
-			
+
 			prompt, err := manager.validatePromptGist(tt.gist)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Fatal("Expected error but got none")
@@ -553,10 +553,10 @@ Content`),
 
 func TestImportManager_checkExistingImport(t *testing.T) {
 	tests := []struct {
-		name         string
-		index        *models.Index
-		gistID       string
-		expectFound  bool
+		name          string
+		index         *models.Index
+		gistID        string
+		expectFound   bool
 		expectedEntry models.IndexEntry
 	}{
 		{
@@ -618,13 +618,13 @@ func TestImportManager_checkExistingImport(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &Manager{}
-			
+
 			entry, found := manager.checkExistingImport(tt.index, tt.gistID)
-			
+
 			if found != tt.expectFound {
 				t.Errorf("Expected found = %v, got %v", tt.expectFound, found)
 			}
-			
+
 			if tt.expectFound {
 				if entry == nil {
 					t.Fatal("Expected entry but got nil")

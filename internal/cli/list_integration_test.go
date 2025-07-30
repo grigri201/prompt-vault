@@ -183,12 +183,12 @@ func TestListCommand_Integration_GistURLDisplay(t *testing.T) {
 					Username: "testuser",
 					Entries: []models.IndexEntry{
 						{
-							GistID:  "verylonggistidthatexceedsnormalsize123456789",
-							GistURL: "https://gist.github.com/veryverylongusername/verylonggistidthatexceedsnormalsize123456789",
-							Name:    "Long URL Prompt",
-							Author:  "testuser",
-							Category: "testing",
-							Version: "1.0",
+							GistID:    "verylonggistidthatexceedsnormalsize123456789",
+							GistURL:   "https://gist.github.com/veryverylongusername/verylonggistidthatexceedsnormalsize123456789",
+							Name:      "Long URL Prompt",
+							Author:    "testuser",
+							Category:  "testing",
+							Version:   "1.0",
 							UpdatedAt: time.Now(),
 						},
 					},

@@ -517,7 +517,7 @@ func savePromptToCache(t *testing.T, cacheManager *cache.Manager, entry models.I
 	if entry.GistID == "" {
 		entry.GistID = fmt.Sprintf("gist_%s", strings.ReplaceAll(strings.ToLower(entry.Name), " ", "_"))
 	}
-	
+
 	// Create the full prompt
 	prompt := &models.Prompt{
 		PromptMeta: models.PromptMeta{
@@ -533,7 +533,7 @@ func savePromptToCache(t *testing.T, cacheManager *cache.Manager, entry models.I
 		UpdatedAt: entry.UpdatedAt,
 		Content:   content,
 	}
-	
+
 	// Save the prompt
 	if err := cacheManager.SavePrompt(prompt); err != nil {
 		t.Fatalf("Failed to save prompt: %v", err)

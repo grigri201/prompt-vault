@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -38,6 +37,9 @@ If the prompt is already imported, you'll be prompted to update it if the versio
 		},
 	}
 
+	// Apply auto-sync middleware
+	WrapWithAutoSync(cmd)
+	
 	return cmd
 }
 
@@ -76,9 +78,13 @@ type gistClientForImport interface {
 func runImport(cmd *cobra.Command, opts *importOptions) error {
 	// Initialize dependencies
 	authManager := auth.NewManager()
-	token, username, err := authManager.GetToken()
+	token, err := authManager.GetToken()
 	if err != nil {
 		return errors.WrapWithMessage(err, errors.ErrMsgAuthRequired)
+	}
+	username, err := authManager.GetUsername()
+	if err != nil {
+		return errors.WrapWithMessage(err, "failed to get username")
 	}
 
 	gistClient, err := gist.NewClient(token)
@@ -146,13 +152,13 @@ func (a *gistClientAdapter) GetIndex(ctx context.Context) (*models.Index, error)
 	// Parse index from gist
 	indexFile, ok := fullGist.Files["index.json"]
 	if !ok {
-		return nil, fmt.Errorf("index.json not found in gist")
+		return nil, errors.NewValidationErrorMsg("parsePromptVaultIndex", "index.json not found in gist")
 	}
 
 	content := *indexFile.Content
 	var index models.Index
 	if err := json.Unmarshal([]byte(content), &index); err != nil {
-		return nil, fmt.Errorf("failed to parse index: %w", err)
+		return nil, errors.WrapError("parsePromptVaultIndex", err)
 	}
 
 	return &index, nil
@@ -192,7 +198,7 @@ func runImportWithDeps(cmd *cobra.Command, opts *importOptions, manager importMa
 
 	// Display result
 	if result.IsUpdate {
-		cmd.Printf("Successfully updated prompt (gist: %s) from version %s to %s\n", 
+		cmd.Printf("Successfully updated prompt (gist: %s) from version %s to %s\n",
 			result.GistID, result.OldVersion, result.NewVersion)
 	} else {
 		cmd.Printf("Successfully imported prompt (gist: %s)\n", result.GistID)
@@ -209,7 +215,7 @@ type importUIAdapter struct {
 func (u *importUIAdapter) Confirm(message string) (bool, error) {
 	// Print the message
 	u.cmd.Println(message)
-	
+
 	// Create a selector model for confirmation
 	choices := []string{"Yes", "No"}
 	model := ui.NewSelector(choices)
@@ -218,7 +224,7 @@ func (u *importUIAdapter) Confirm(message string) (bool, error) {
 	p := tea.NewProgram(model)
 	finalModel, err := p.Run()
 	if err != nil {
-		return false, fmt.Errorf("failed to run confirmation prompt: %w", err)
+		return false, errors.WrapError("showConfirmation", err)
 	}
 
 	// Check if user selected "Yes"

@@ -9,14 +9,14 @@ import (
 
 // MockGistClient is a mock implementation of the gist client for integration tests
 type MockGistClient struct {
-	gists              map[string]*github.Gist
-	userGists          []*github.Gist
-	getGistError       error
-	createGistError    error
-	updateGistError    error
-	nextGistID         int
-	createGistCalls    int
-	updateGistCalls    int
+	gists           map[string]*github.Gist
+	userGists       []*github.Gist
+	getGistError    error
+	createGistError error
+	updateGistError error
+	nextGistID      int
+	createGistCalls int
+	updateGistCalls int
 }
 
 func (m *MockGistClient) GetGist(ctx context.Context, gistID string) (*github.Gist, error) {
@@ -35,12 +35,12 @@ func (m *MockGistClient) CreatePublicGist(ctx context.Context, gistName, descrip
 		return "", "", m.createGistError
 	}
 	m.createGistCalls++
-	
+
 	// Generate new gist ID
 	m.nextGistID++
 	gistID := fmt.Sprintf("public%d", m.nextGistID)
 	gistURL := fmt.Sprintf("https://gist.github.com/testuser/%s", gistID)
-	
+
 	// Create the gist
 	gist := &github.Gist{
 		ID:          github.String(gistID),
@@ -53,10 +53,10 @@ func (m *MockGistClient) CreatePublicGist(ctx context.Context, gistName, descrip
 			},
 		},
 	}
-	
+
 	m.gists[gistID] = gist
 	m.userGists = append(m.userGists, gist)
-	
+
 	return gistID, gistURL, nil
 }
 
@@ -65,12 +65,12 @@ func (m *MockGistClient) UpdateGist(ctx context.Context, gistID, gistName, descr
 		return "", m.updateGistError
 	}
 	m.updateGistCalls++
-	
+
 	gist, exists := m.gists[gistID]
 	if !exists {
 		return "", fmt.Errorf("gist not found")
 	}
-	
+
 	// Update the gist
 	gist.Description = github.String(description)
 	gist.Files = map[github.GistFilename]github.GistFile{
@@ -78,7 +78,7 @@ func (m *MockGistClient) UpdateGist(ctx context.Context, gistID, gistName, descr
 			Content: github.String(content),
 		},
 	}
-	
+
 	return *gist.HTMLURL, nil
 }
 
@@ -95,12 +95,12 @@ type MockUI struct {
 
 func (m *MockUI) Confirm(message string) (bool, error) {
 	m.confirmCalls = append(m.confirmCalls, message)
-	
+
 	if m.confirmIndex < len(m.confirmResponses) {
 		response := m.confirmResponses[m.confirmIndex]
 		m.confirmIndex++
 		return response, nil
 	}
-	
+
 	return false, nil
 }

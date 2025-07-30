@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/grigri201/prompt-vault/internal/errors"
+	"github.com/grigri201/prompt-vault/internal/interfaces"
 	"github.com/grigri201/prompt-vault/internal/managers"
 	"github.com/grigri201/prompt-vault/internal/models"
 	"github.com/grigri201/prompt-vault/internal/parser"
@@ -74,7 +76,7 @@ func (m *Manager) Initialize(ctx context.Context) error {
 	defer m.mu.Unlock()
 
 	if err := m.pathManager.EnsureCacheDir(); err != nil {
-		return fmt.Errorf("failed to initialize cache: %w", err)
+		return errors.WrapError("Initialize", err)
 	}
 
 	m.SetInitialized(true)
@@ -122,13 +124,13 @@ func (m *Manager) Clean() error {
 	// Remove index.json if it exists
 	indexPath := m.GetIndexPath()
 	if err := m.pathManager.RemoveFile(indexPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove index file: %w", err)
+		return errors.WrapError("clearCache", err)
 	}
 
 	// Remove metadata.json if it exists
 	metadataPath := m.GetMetadataPath()
 	if err := m.pathManager.RemoveFile(metadataPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove metadata file: %w", err)
+		return errors.WrapError("clearCache", err)
 	}
 
 	// Remove all files in prompts directory
@@ -139,14 +141,14 @@ func (m *Manager) Clean() error {
 			// Directory doesn't exist, nothing to clean
 			return nil
 		}
-		return fmt.Errorf("failed to read cache directory: %w", err)
+		return errors.WrapError("clearCache", err)
 	}
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			path := filepath.Join(cacheDir, entry.Name())
 			if err := m.pathManager.RemoveFile(path); err != nil {
-				return fmt.Errorf("failed to remove cached file %s: %w", entry.Name(), err)
+				return errors.WrapError("clearCache", err)
 			}
 		}
 	}
@@ -154,14 +156,19 @@ func (m *Manager) Clean() error {
 	return nil
 }
 
+// ClearCache removes all cached files (alias for Clean to implement interface)
+func (m *Manager) ClearCache() error {
+	return m.Clean()
+}
+
 // SavePrompt saves a prompt to the cache
 func (m *Manager) SavePrompt(prompt *models.Prompt) error {
 	if prompt == nil {
-		return fmt.Errorf("prompt is nil")
+		return errors.NewValidationErrorMsg("SavePrompt", "prompt is nil")
 	}
 
 	if prompt.GistID == "" {
-		return fmt.Errorf("prompt GistID is empty")
+		return errors.NewValidationErrorMsg("SavePrompt", "prompt GistID is empty")
 	}
 
 	// Lock for writing
@@ -181,7 +188,7 @@ func (m *Manager) SavePrompt(prompt *models.Prompt) error {
 	// Marshal metadata to YAML
 	metaYAML, err := yaml.Marshal(meta)
 	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
+		return errors.WrapError("SavePrompt", err)
 	}
 
 	// Create complete content with front matter
@@ -192,7 +199,7 @@ func (m *Manager) SavePrompt(prompt *models.Prompt) error {
 
 	// Write to file atomically with secure permissions
 	if err := m.pathManager.AtomicWrite(promptPath, []byte(frontMatter), 0600); err != nil {
-		return fmt.Errorf("failed to save prompt: %w", err)
+		return errors.WrapError("SavePrompt", err)
 	}
 
 	return nil
@@ -211,15 +218,15 @@ func (m *Manager) GetPrompt(gistID string) (*models.Prompt, error) {
 	content, err := m.pathManager.ReadFile(promptPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("prompt not found in cache")
+			return nil, errors.NewFileSystemErrorMsg("GetPrompt", "prompt not found in cache")
 		}
-		return nil, fmt.Errorf("failed to read prompt: %w", err)
+		return nil, errors.WrapError("GetPrompt", err)
 	}
 
 	// Parse the prompt file
 	prompt, err := parser.ParsePromptFile(string(content))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse cached prompt: %w", err)
+		return nil, errors.WrapError("GetPrompt", err)
 	}
 
 	// Set the GistID (not stored in the file content)
@@ -231,11 +238,11 @@ func (m *Manager) GetPrompt(gistID string) (*models.Prompt, error) {
 // SaveIndex saves the index to the cache
 func (m *Manager) SaveIndex(index *models.Index) error {
 	if index == nil {
-		return fmt.Errorf("index is nil")
+		return errors.NewValidationErrorMsg("SaveIndex", "index is nil")
 	}
 
 	if index.Username == "" {
-		return fmt.Errorf("index username is empty")
+		return errors.NewValidationErrorMsg("SaveIndex", "index username is empty")
 	}
 
 	// Lock for writing
@@ -248,12 +255,12 @@ func (m *Manager) SaveIndex(index *models.Index) error {
 	// Marshal index to JSON with indentation
 	data, err := json.MarshalIndent(index, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal index: %w", err)
+		return errors.WrapError("SaveIndex", err)
 	}
 
 	// Write to file atomically using pathManager
 	if err := m.pathManager.AtomicWrite(indexPath, data, 0600); err != nil {
-		return fmt.Errorf("failed to save index file: %w", err)
+		return errors.WrapError("SaveIndex", err)
 	}
 
 	return nil
@@ -275,18 +282,18 @@ func (m *Manager) GetIndex() (*models.Index, error) {
 			// Index doesn't exist yet, return nil
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to read index file: %w", err)
+		return nil, errors.WrapError("GetIndex", err)
 	}
 
 	// Handle empty file
 	if len(data) == 0 {
-		return nil, fmt.Errorf("index file is empty")
+		return nil, errors.NewFileSystemErrorMsg("GetIndex", "index file is empty")
 	}
 
 	// Unmarshal JSON
 	var index models.Index
 	if err := json.Unmarshal(data, &index); err != nil {
-		return nil, fmt.Errorf("failed to parse index file: %w", err)
+		return nil, errors.WrapError("GetIndex", err)
 	}
 
 	return &index, nil
@@ -332,3 +339,10 @@ func (m *Manager) DeletePrompt(name string) error {
 
 	return nil
 }
+
+// Ensure Manager implements the interfaces
+var (
+	_ interfaces.CacheManager = (*Manager)(nil)
+	_ interfaces.CacheReader  = (*Manager)(nil)
+	_ interfaces.CacheWriter  = (*Manager)(nil)
+)

@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	
+
 	"github.com/google/go-github/v73/github"
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/models"
+	"github.com/grigri201/prompt-vault/internal/parser"
 	"gopkg.in/yaml.v3"
 )
 
@@ -51,12 +53,12 @@ func (m *Manager) SharePrompt(ctx context.Context, privateGistID string) (*Share
 	// Get the private gist
 	gist, err := m.gistClient.GetGist(ctx, privateGistID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gist: %w", err)
+		return nil, errors.WrapError("SharePrompt", err)
 	}
 
 	// Validate it's a private gist
 	if gist.Public != nil && *gist.Public {
-		return nil, fmt.Errorf("cannot share: gist %s is already public", privateGistID)
+		return nil, errors.NewValidationErrorMsg("SharePrompt", fmt.Sprintf("cannot share: gist %s is already public", privateGistID))
 	}
 
 	// Extract prompt content from gist
@@ -71,19 +73,19 @@ func (m *Manager) SharePrompt(ctx context.Context, privateGistID string) (*Share
 	}
 
 	if promptContent == "" {
-		return nil, fmt.Errorf("no content found in gist")
+		return nil, errors.NewValidationErrorMsg("SharePrompt", "no content found in gist")
 	}
 
 	// Parse the prompt
 	prompt, err := parsePromptFromGist(privateGistID, promptFile, promptContent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse prompt: %w", err)
+		return nil, errors.WrapError("SharePrompt", err)
 	}
 
 	// Check if a public version already exists
 	existingPublicID, err := m.findExistingPublicGist(ctx, privateGistID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check for existing public gist: %w", err)
+		return nil, errors.WrapError("SharePrompt", err)
 	}
 
 	// If public version exists, ask user if they want to update it
@@ -91,10 +93,10 @@ func (m *Manager) SharePrompt(ctx context.Context, privateGistID string) (*Share
 		message := fmt.Sprintf("A public version of this prompt already exists (ID: %s). Do you want to update it?", existingPublicID)
 		confirmed, err := m.ui.Confirm(message)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get user confirmation: %w", err)
+			return nil, errors.WrapError("SharePrompt", err)
 		}
 		if !confirmed {
-			return nil, fmt.Errorf("update cancelled by user")
+			return nil, errors.NewValidationErrorMsg("SharePrompt", "update cancelled by user")
 		}
 		// Update existing public gist
 		return m.updatePublicGist(ctx, existingPublicID, prompt)
@@ -106,60 +108,28 @@ func (m *Manager) SharePrompt(ctx context.Context, privateGistID string) (*Share
 
 // parsePromptFromGist parses prompt content from a gist
 func parsePromptFromGist(gistID, filename, content string) (*models.Prompt, error) {
-	// Parse YAML front matter
-	meta, promptContent, err := parseYAMLFrontMatter(content)
+	// Create lenient parser for share operations
+	yamlParser := parser.NewYAMLParser(parser.YAMLParserConfig{
+		Strict: false, // Be lenient for parsing shared prompts
+	})
+
+	// Parse the prompt file
+	prompt, err := yamlParser.ParsePromptFile(content)
 	if err != nil {
 		return nil, err
 	}
 
-	prompt := &models.Prompt{
-		PromptMeta: *meta,
-		GistID:     gistID,
-		Content:    promptContent,
-	}
+	// Set the gist ID
+	prompt.GistID = gistID
 
 	return prompt, nil
-}
-
-// parseYAMLFrontMatter parses YAML front matter without full validation
-func parseYAMLFrontMatter(content string) (*models.PromptMeta, string, error) {
-	// Check if content starts with front matter delimiter
-	if !strings.HasPrefix(content, "---\n") && !strings.HasPrefix(content, "---\r\n") {
-		return nil, "", fmt.Errorf("missing YAML front matter")
-	}
-
-	// Find the closing delimiter
-	content = strings.TrimPrefix(content, "---\n")
-	content = strings.TrimPrefix(content, "---\r\n")
-
-	endIndex := strings.Index(content, "\n---")
-	if endIndex == -1 {
-		endIndex = strings.Index(content, "\r\n---")
-		if endIndex == -1 {
-			return nil, "", fmt.Errorf("unclosed YAML front matter")
-		}
-	}
-
-	frontMatter := content[:endIndex]
-	promptContent := content[endIndex+4:] // Skip "\n---"
-	if strings.HasPrefix(promptContent, "\n") {
-		promptContent = promptContent[1:]
-	}
-
-	// Parse YAML
-	var meta models.PromptMeta
-	if err := yaml.Unmarshal([]byte(frontMatter), &meta); err != nil {
-		return nil, "", fmt.Errorf("failed to parse YAML: %w", err)
-	}
-
-	return &meta, promptContent, nil
 }
 
 // extractParentFromContent extracts the parent field from YAML front matter without full validation
 func extractParentFromContent(content string) (string, error) {
 	// Check if content starts with front matter delimiter
 	if !strings.HasPrefix(content, "---\n") && !strings.HasPrefix(content, "---\r\n") {
-		return "", fmt.Errorf("no YAML front matter")
+		return "", errors.NewParsingErrorMsg("extractParentFromContent", "no YAML front matter")
 	}
 
 	// Find the closing delimiter
@@ -170,7 +140,7 @@ func extractParentFromContent(content string) (string, error) {
 	if endIndex == -1 {
 		endIndex = strings.Index(content, "\r\n---")
 		if endIndex == -1 {
-			return "", fmt.Errorf("unclosed YAML front matter")
+			return "", errors.NewParsingErrorMsg("extractParentFromContent", "unclosed YAML front matter")
 		}
 	}
 
@@ -192,7 +162,7 @@ func (m *Manager) findExistingPublicGist(ctx context.Context, parentID string) (
 	// List all user's gists
 	gists, err := m.gistClient.ListUserGists(ctx, m.username)
 	if err != nil {
-		return "", fmt.Errorf("failed to list user gists: %w", err)
+		return "", errors.WrapError("findExistingPublicGist", err)
 	}
 
 	// Search for a public gist with matching parent field
@@ -251,7 +221,7 @@ func (m *Manager) createPublicGist(ctx context.Context, prompt *models.Prompt) (
 	// Create the public gist
 	gistID, gistURL, err := m.gistClient.CreatePublicGist(ctx, gistName, description, fullContent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create public gist: %w", err)
+		return nil, errors.WrapError("createPublicGist", err)
 	}
 
 	return &ShareResult{
@@ -330,7 +300,7 @@ func (m *Manager) updatePublicGist(ctx context.Context, gistID string, prompt *m
 	// Update the public gist
 	gistURL, err := m.gistClient.UpdateGist(ctx, gistID, gistName, description, fullContent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update public gist: %w", err)
+		return nil, errors.WrapError("updatePublicGist", err)
 	}
 
 	return &ShareResult{

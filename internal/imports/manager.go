@@ -83,7 +83,7 @@ func (m *Manager) ImportPrompt(ctx context.Context, gistURL string, index *model
 
 	// Check if already imported
 	existingEntry, exists := m.checkExistingImport(index, gistID)
-	
+
 	result := &ImportResult{
 		GistID: gistID,
 	}
@@ -115,7 +115,7 @@ func (m *Manager) ImportPrompt(ctx context.Context, gistURL string, index *model
 	} else {
 		// New import
 		result.NewVersion = newEntry.Version
-		
+
 		// Add to index
 		index.AddImportedEntry(newEntry)
 	}

@@ -19,7 +19,7 @@ func TestShareCommand_NoArguments(t *testing.T) {
 		wantErr    bool
 	}{
 		{
-			name: "shows empty list message when no prompts",
+			name:       "shows empty list message when no prompts",
 			setupCache: nil, // No cache setup, empty index
 			wantOutput: []string{
 				"No prompts found",
@@ -81,14 +81,14 @@ func TestShareCommand_NoArguments(t *testing.T) {
 					Username: "testuser",
 					Entries: []models.IndexEntry{
 						{
-							GistID:      "single123",
-							GistURL:     "https://gist.github.com/testuser/single123",
-							Name:        "Single Prompt",
-							Author:      "testuser",
-							Category:    "general",
-							Version:     "1.0",
-							Tags:        []string{"single"},
-							UpdatedAt:   time.Now(),
+							GistID:    "single123",
+							GistURL:   "https://gist.github.com/testuser/single123",
+							Name:      "Single Prompt",
+							Author:    "testuser",
+							Category:  "general",
+							Version:   "1.0",
+							Tags:      []string{"single"},
+							UpdatedAt: time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
@@ -163,7 +163,7 @@ func TestShareCommand_SelectionCancelled(t *testing.T) {
 	// This test would require mocking the selector interaction
 	// Since the test environment doesn't have TTY support, we'll skip it
 	t.Skip("Selection cancellation test requires TTY support")
-	
+
 	// Expected behavior: When user cancels selection
 	// Output: "No selection made."
 	// No sharing should occur

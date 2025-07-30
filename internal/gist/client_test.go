@@ -1078,7 +1078,7 @@ func TestClient_ListUserGists(t *testing.T) {
 				page := 0
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					page++
-					
+
 					if page == 1 {
 						// First page with Link header for next page
 						w.Header().Set("Link", fmt.Sprintf(`<%s?page=2>; rel="next"`, r.URL.Path))
@@ -1427,10 +1427,10 @@ func TestClient_GetGistByURL(t *testing.T) {
 
 func TestClient_ExtractGistID(t *testing.T) {
 	tests := []struct {
-		name      string
-		gistURL   string
-		wantID    string
-		wantErr   bool
+		name    string
+		gistURL string
+		wantID  string
+		wantErr bool
 	}{
 		{
 			name:    "extracts from standard URL",

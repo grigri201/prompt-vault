@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strings"
 
+	goerrors "errors"
 	"github.com/google/go-github/v73/github"
 	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/models"
-	goerrors "errors"
 )
 
 // Client wraps the GitHub API client for Gist operations
@@ -319,7 +319,7 @@ func (c *Client) ExtractGistID(gistURL string) (string, error) {
 
 	// Clean the URL
 	gistURL = strings.TrimSpace(gistURL)
-	
+
 	// If it's already just a gist ID (alphanumeric), return it
 	if isValidGistID(gistURL) {
 		return gistURL, nil
@@ -336,10 +336,10 @@ func (c *Client) ExtractGistID(gistURL string) (string, error) {
 
 	// Split by slashes
 	parts := strings.Split(gistURL, "/")
-	
+
 	// Find the gist ID based on URL pattern
 	var gistID string
-	
+
 	// For gist.github.com/user/gistid or gist.githubusercontent.com/user/gistid/...
 	// We need to find the part after the username
 	foundUser := false
@@ -347,18 +347,18 @@ func (c *Client) ExtractGistID(gistURL string) (string, error) {
 		if part == "" {
 			continue
 		}
-		
+
 		// Skip domain parts
 		if strings.Contains(part, "gist.github") {
 			continue
 		}
-		
+
 		// First non-domain part is username, next is gist ID
 		if !foundUser {
 			foundUser = true
 			continue
 		}
-		
+
 		// This should be the gist ID
 		// Check if it contains invalid characters first
 		if strings.ContainsAny(part, "$*!@#%^&()+={}[]|\\:;\"'<>,.?/") {
@@ -506,4 +506,65 @@ func (c *Client) UpdateIndexGist(ctx context.Context, username string, index *mo
 	}
 
 	return *createdGist.ID, nil
+}
+
+// GetIndexGist retrieves the index Gist for a user
+func (c *Client) GetIndexGist(ctx context.Context, username string) (*models.Index, string, error) {
+	// Validate input
+	if username == "" {
+		return nil, "", errors.NewValidationErrorMsg("GetIndexGist", "username is required")
+	}
+
+	// Gist filename for index
+	indexFilename := fmt.Sprintf("%s-promptvault-index.json", username)
+
+	// List user's gists to find the index (empty string for authenticated user)
+	gists, _, err := c.github.Gists.List(ctx, "", &github.GistListOptions{})
+	if err != nil {
+		return nil, "", errors.WrapWithMessage(err, "failed to list gists")
+	}
+
+	// Look for index gist
+	for _, gist := range gists {
+		if gist.Description != nil && *gist.Description == "Prompt Vault Index" {
+			// Check if it has the index file
+			for filename := range gist.Files {
+				if string(filename) == indexFilename {
+					// Found the index gist, need to fetch full content
+					if gist.ID == nil {
+						return nil, "", errors.NewValidationErrorMsg("GetIndexGist", "gist ID is nil")
+					}
+					
+					// Get the full gist with content
+					fullGist, _, err := c.github.Gists.Get(ctx, *gist.ID)
+					if err != nil {
+						return nil, "", errors.WrapWithMessage(err, "failed to get index gist content")
+					}
+					
+					// Get the file content
+					if file, ok := fullGist.Files[github.GistFilename(indexFilename)]; ok {
+						if file.Content == nil {
+							return nil, "", errors.NewValidationErrorMsg("GetIndexGist", "index file has no content")
+						}
+						
+						// Parse the index JSON
+						var index models.Index
+						if err := json.Unmarshal([]byte(*file.Content), &index); err != nil {
+							return nil, "", errors.WrapWithMessage(err, "failed to parse index JSON")
+						}
+						
+						// Ensure username is set
+						index.Username = username
+						
+						return &index, *gist.ID, nil
+					}
+					
+					return nil, "", errors.NewValidationErrorMsg("GetIndexGist", "index file not found in gist")
+				}
+			}
+		}
+	}
+
+	// Index gist not found
+	return nil, "", errors.NewFileSystemErrorMsg("GetIndexGist", "index gist not found")
 }

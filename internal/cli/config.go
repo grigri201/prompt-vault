@@ -5,8 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
 	"github.com/grigri201/prompt-vault/internal/config"
+	"github.com/grigri201/prompt-vault/internal/errors"
+	"github.com/spf13/cobra"
 )
 
 // newConfigCmd creates the config command
@@ -28,13 +29,13 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	// Get configuration
 	cfg, err := cfgManager.GetConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return errors.WrapError("runConfig", err)
 	}
 
 	// Get configuration paths
 	configPath := config.GetConfigPath()
 	configDir := filepath.Dir(configPath)
-	
+
 	// Get cache path
 	homeDir, _ := os.UserHomeDir()
 	if homeDir == "" {
@@ -55,7 +56,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Fprintln(cmd.OutOrStdout(), "  GitHub Token: (not set)")
 	}
-	
+
 	// Display last sync time
 	if !cfg.LastSync.IsZero() {
 		fmt.Fprintf(cmd.OutOrStdout(), "  Last Sync: %s\n", cfg.LastSync.Format("2006-01-02 15:04:05"))

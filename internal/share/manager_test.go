@@ -13,11 +13,11 @@ import (
 // MockGistClient is a mock implementation of the gist client interface
 type MockGistClient struct {
 	// GetGist mock
-	GetGistFunc func(ctx context.Context, gistID string) (*github.Gist, error)
+	GetGistFunc  func(ctx context.Context, gistID string) (*github.Gist, error)
 	GetGistCalls []string
 
 	// CreatePublicGist mock
-	CreatePublicGistFunc func(ctx context.Context, gistName, description, content string) (string, string, error)
+	CreatePublicGistFunc  func(ctx context.Context, gistName, description, content string) (string, string, error)
 	CreatePublicGistCalls []struct {
 		GistName    string
 		Description string
@@ -25,7 +25,7 @@ type MockGistClient struct {
 	}
 
 	// UpdateGist mock
-	UpdateGistFunc func(ctx context.Context, gistID, gistName, description, content string) (string, error)
+	UpdateGistFunc  func(ctx context.Context, gistID, gistName, description, content string) (string, error)
 	UpdateGistCalls []struct {
 		GistID      string
 		GistName    string
@@ -34,7 +34,7 @@ type MockGistClient struct {
 	}
 
 	// ListUserGists mock
-	ListUserGistsFunc func(ctx context.Context, username string) ([]*github.Gist, error)
+	ListUserGistsFunc  func(ctx context.Context, username string) ([]*github.Gist, error)
 	ListUserGistsCalls []string
 }
 
@@ -81,7 +81,7 @@ func (m *MockGistClient) ListUserGists(ctx context.Context, username string) ([]
 
 // MockUI is a mock implementation of the UI interface
 type MockUI struct {
-	ConfirmFunc func(message string) (bool, error)
+	ConfirmFunc  func(message string) (bool, error)
 	ConfirmCalls []string
 }
 
@@ -95,7 +95,7 @@ func (m *MockUI) Confirm(message string) (bool, error) {
 
 func TestShareManager_SharePrompt_NewPublicGist(t *testing.T) {
 	ctx := context.Background()
-	
+
 	// Setup mock gist client
 	mockClient := &MockGistClient{
 		GetGistFunc: func(ctx context.Context, gistID string) (*github.Gist, error) {
@@ -176,7 +176,7 @@ This is a test prompt.`
 
 func TestShareManager_SharePrompt_UpdateExistingPublicGist(t *testing.T) {
 	ctx := context.Background()
-	
+
 	// Setup mock gist client
 	mockClient := &MockGistClient{
 		GetGistFunc: func(ctx context.Context, gistID string) (*github.Gist, error) {
@@ -284,7 +284,7 @@ This is a test prompt.`
 
 func TestShareManager_SharePrompt_PublicGistError(t *testing.T) {
 	ctx := context.Background()
-	
+
 	mockClient := &MockGistClient{
 		GetGistFunc: func(ctx context.Context, gistID string) (*github.Gist, error) {
 			return &github.Gist{
@@ -311,7 +311,7 @@ func TestShareManager_SharePrompt_PublicGistError(t *testing.T) {
 
 func TestShareManager_SharePrompt_GistNotFound(t *testing.T) {
 	ctx := context.Background()
-	
+
 	mockClient := &MockGistClient{
 		GetGistFunc: func(ctx context.Context, gistID string) (*github.Gist, error) {
 			return nil, fmt.Errorf("gist not found")
@@ -335,7 +335,7 @@ func TestShareManager_SharePrompt_GistNotFound(t *testing.T) {
 
 func TestShareManager_SharePrompt_UserCancelsUpdate(t *testing.T) {
 	ctx := context.Background()
-	
+
 	mockClient := &MockGistClient{
 		GetGistFunc: func(ctx context.Context, gistID string) (*github.Gist, error) {
 			return &github.Gist{
@@ -635,13 +635,13 @@ func TestShareManager_createPublicGist(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name          string
-		prompt        *models.Prompt
-		createFunc    func(ctx context.Context, gistName, description, content string) (string, string, error)
-		expectedID    string
-		expectedURL   string
-		expectError   bool
-		errorContains string
+		name            string
+		prompt          *models.Prompt
+		createFunc      func(ctx context.Context, gistName, description, content string) (string, string, error)
+		expectedID      string
+		expectedURL     string
+		expectError     bool
+		errorContains   string
 		validateContent func(t *testing.T, content string)
 	}{
 		{
@@ -897,14 +897,14 @@ func TestShareManager_updatePublicGist(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name            string
-		gistID          string
-		prompt          *models.Prompt
-		updateFunc      func(ctx context.Context, gistID, gistName, description, content string) (string, error)
-		expectedURL     string
-		expectError     bool
-		errorContains   string
-		validateUpdate  func(t *testing.T, gistID, content string)
+		name           string
+		gistID         string
+		prompt         *models.Prompt
+		updateFunc     func(ctx context.Context, gistID, gistName, description, content string) (string, error)
+		expectedURL    string
+		expectError    bool
+		errorContains  string
+		validateUpdate func(t *testing.T, gistID, content string)
 	}{
 		{
 			name:   "updates public gist with new content",

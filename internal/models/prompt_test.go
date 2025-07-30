@@ -36,6 +36,50 @@ func TestPromptMeta_Validation(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid prompt meta with valid ID",
+			meta: PromptMeta{
+				Name:     "Test Prompt",
+				Author:   "john",
+				Category: "test",
+				Tags:     []string{"test"},
+				ID:       "test-prompt-123",
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid ID with spaces",
+			meta: PromptMeta{
+				Name:     "Test Prompt",
+				Author:   "john",
+				Category: "test",
+				Tags:     []string{"test"},
+				ID:       "test prompt 123",
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid ID with special characters",
+			meta: PromptMeta{
+				Name:     "Test Prompt",
+				Author:   "john",
+				Category: "test",
+				Tags:     []string{"test"},
+				ID:       "test@prompt!123",
+			},
+			wantError: true,
+		},
+		{
+			name: "ID too short",
+			meta: PromptMeta{
+				Name:     "Test Prompt",
+				Author:   "john",
+				Category: "test",
+				Tags:     []string{"test"},
+				ID:       "ab",
+			},
+			wantError: true,
+		},
+		{
 			name: "missing name",
 			meta: PromptMeta{
 				Author:   "john",
@@ -91,6 +135,89 @@ func TestPromptMeta_Validation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPromptMeta_ValidateID(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        string
+		wantError bool
+		errorMsg  string
+	}{
+		{
+			name:      "empty ID is valid",
+			id:        "",
+			wantError: false,
+		},
+		{
+			name:      "valid ID with letters",
+			id:        "testprompt",
+			wantError: false,
+		},
+		{
+			name:      "valid ID with numbers",
+			id:        "test123",
+			wantError: false,
+		},
+		{
+			name:      "valid ID with hyphens",
+			id:        "test-prompt-123",
+			wantError: false,
+		},
+		{
+			name:      "valid ID with underscores",
+			id:        "test_prompt_123",
+			wantError: false,
+		},
+		{
+			name:      "valid ID with mixed characters",
+			id:        "Test_Prompt-123",
+			wantError: false,
+		},
+		{
+			name:      "invalid ID with spaces",
+			id:        "test prompt",
+			wantError: true,
+			errorMsg:  "ID can only contain letters, numbers, hyphens, and underscores",
+		},
+		{
+			name:      "invalid ID with special characters",
+			id:        "test@prompt",
+			wantError: true,
+			errorMsg:  "ID can only contain letters, numbers, hyphens, and underscores",
+		},
+		{
+			name:      "ID too short",
+			id:        "ab",
+			wantError: true,
+			errorMsg:  "ID must be at least 3 characters long",
+		},
+		{
+			name:      "ID too long",
+			id:        "a" + string(make([]byte, 100)),
+			wantError: true,
+			errorMsg:  "ID must not exceed 100 characters",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			meta := PromptMeta{ID: tt.id}
+			err := meta.ValidateID()
+			if (err != nil) != tt.wantError {
+				t.Errorf("ValidateID() error = %v, wantError %v", err, tt.wantError)
+			}
+			if err != nil && tt.errorMsg != "" && err.Error() != tt.errorMsg {
+				if !containsString(err.Error(), tt.errorMsg) {
+					t.Errorf("ValidateID() error message = %v, want containing %v", err.Error(), tt.errorMsg)
+				}
+			}
+		})
+	}
+}
+
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && s[len(s)-len(substr):] == substr || len(s) > len(substr) && s[len(s)-len(substr)-1:len(s)-1] == ": "+substr)
 }
 
 func TestPromptMeta_DefaultVersion(t *testing.T) {

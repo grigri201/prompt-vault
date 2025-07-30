@@ -3,6 +3,7 @@ package errors
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // NewAuthErrorMsg creates an authentication error with a custom message
@@ -60,7 +61,7 @@ func WrapWithMessage(err error, msg string) error {
 	if err == nil {
 		return nil
 	}
-	
+
 	// If it's already an AppError, preserve the type
 	var appErr *AppError
 	if As(err, &appErr) {
@@ -71,7 +72,7 @@ func WrapWithMessage(err error, msg string) error {
 			Message: msg,
 		}
 	}
-	
+
 	// Otherwise, wrap as generic error
 	return fmt.Errorf("%s: %w", msg, err)
 }
@@ -79,15 +80,15 @@ func WrapWithMessage(err error, msg string) error {
 // Share command specific error messages
 const (
 	// Share errors
-	ErrMsgSharePublicGist      = "Cannot share a gist that is already public"
-	ErrMsgShareGistNotFound    = "The gist was not found. Please check the gist ID and try again"
-	ErrMsgShareNoYAMLFile      = "The gist does not contain a valid YAML prompt file"
-	ErrMsgShareInvalidPrompt   = "The prompt file has an invalid format"
-	ErrMsgShareCreateFailed    = "Failed to create public gist. Please check your permissions and try again"
-	ErrMsgShareUpdateFailed    = "Failed to update existing public gist"
-	ErrMsgShareCancelled       = "Share operation was cancelled by user"
-	ErrMsgShareNetworkError    = "Network error occurred while sharing. Please check your internet connection"
-	
+	ErrMsgSharePublicGist    = "Cannot share a gist that is already public"
+	ErrMsgShareGistNotFound  = "The gist was not found. Please check the gist ID and try again"
+	ErrMsgShareNoYAMLFile    = "The gist does not contain a valid YAML prompt file"
+	ErrMsgShareInvalidPrompt = "The prompt file has an invalid format"
+	ErrMsgShareCreateFailed  = "Failed to create public gist. Please check your permissions and try again"
+	ErrMsgShareUpdateFailed  = "Failed to update existing public gist"
+	ErrMsgShareCancelled     = "Share operation was cancelled by user"
+	ErrMsgShareNetworkError  = "Network error occurred while sharing. Please check your internet connection"
+
 	// Import errors
 	ErrMsgImportInvalidURL     = "The provided URL is not valid. Please provide a valid GitHub gist URL"
 	ErrMsgImportNotGitHubURL   = "The URL is not a GitHub gist URL. Only GitHub gists can be imported"
@@ -98,10 +99,10 @@ const (
 	ErrMsgImportInvalidVersion = "The prompt has an invalid version format"
 	ErrMsgImportCancelled      = "Import operation was cancelled by user"
 	ErrMsgImportIndexUpdate    = "Failed to update the index after import"
-	
+
 	// Common messages
-	ErrMsgAuthRequired         = "Authentication required. Please run 'pv login' first"
-	ErrMsgNetworkTimeout       = "Request timed out. Please check your internet connection and try again"
+	ErrMsgAuthRequired   = "Authentication required. Please run 'pv login' first"
+	ErrMsgNetworkTimeout = "Request timed out. Please check your internet connection and try again"
 )
 
 // GetShareErrorMessage returns a user-friendly error message for share errors
@@ -109,7 +110,7 @@ func GetShareErrorMessage(err error) string {
 	if err == nil {
 		return ""
 	}
-	
+
 	// Check for specific error types
 	var appErr *AppError
 	if As(err, &appErr) {
@@ -117,7 +118,7 @@ func GetShareErrorMessage(err error) string {
 		if appErr.Message != "" && !isDefaultMessage(appErr) {
 			return appErr.Message
 		}
-		
+
 		// Otherwise, use type-specific messages
 		switch appErr.Type {
 		case ErrTypeAuth:
@@ -126,7 +127,7 @@ func GetShareErrorMessage(err error) string {
 			return ErrMsgShareNetworkError
 		}
 	}
-	
+
 	// Check error message content
 	errMsg := err.Error()
 	switch {
@@ -148,7 +149,7 @@ func GetImportErrorMessage(err error) string {
 	if err == nil {
 		return ""
 	}
-	
+
 	// Check for specific error types
 	var appErr *AppError
 	if As(err, &appErr) {
@@ -156,7 +157,7 @@ func GetImportErrorMessage(err error) string {
 		if appErr.Message != "" && !isDefaultMessage(appErr) {
 			return appErr.Message
 		}
-		
+
 		// Otherwise, use type-specific messages
 		switch appErr.Type {
 		case ErrTypeAuth:
@@ -167,7 +168,7 @@ func GetImportErrorMessage(err error) string {
 			return ErrMsgImportNoValidPrompt
 		}
 	}
-	
+
 	// Check error message content
 	errMsg := err.Error()
 	switch {
@@ -195,7 +196,7 @@ func isDefaultMessage(appErr *AppError) bool {
 	if appErr == nil || appErr.Message == "" {
 		return true
 	}
-	
+
 	// Check if it matches the default message pattern
 	defaultPrefixes := []string{
 		"authentication failed during ",
@@ -204,43 +205,17 @@ func isDefaultMessage(appErr *AppError) bool {
 		"validation failed during ",
 		"parsing failed during ",
 	}
-	
+
 	for _, prefix := range defaultPrefixes {
 		if contains(appErr.Message, prefix) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // contains checks if a string contains a substring (case-insensitive)
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && containsHelper(s, substr)
-}
-
-func containsHelper(s, substr string) bool {
-	// Convert to lowercase for case-insensitive comparison
-	sLower := toLower(s)
-	substrLower := toLower(substr)
-	
-	for i := 0; i <= len(sLower)-len(substrLower); i++ {
-		if sLower[i:i+len(substrLower)] == substrLower {
-			return true
-		}
-	}
-	return false
-}
-
-func toLower(s string) string {
-	result := make([]byte, len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= 'A' && c <= 'Z' {
-			result[i] = c + 32
-		} else {
-			result[i] = c
-		}
-	}
-	return string(result)
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }

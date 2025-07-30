@@ -431,16 +431,16 @@ func (m *MockImportGistClient) ExtractGistID(gistURL string) (string, error) {
 	if !contains(gistURL, "gist.github.com") {
 		return "", fmt.Errorf("not a GitHub gist URL")
 	}
-	
+
 	if gistURL == "not-a-url" {
 		return "", fmt.Errorf("invalid URL")
 	}
-	
+
 	// Extract last part of URL as gist ID
 	parts := strings.Split(gistURL, "/")
 	if len(parts) < 2 {
 		return "", fmt.Errorf("invalid gist URL format")
 	}
-	
+
 	return parts[len(parts)-1], nil
 }

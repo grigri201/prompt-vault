@@ -40,6 +40,26 @@ Generate {format} documentation for the following API endpoint:
 			wantError:   false,
 		},
 		{
+			name: "valid front matter with ID field",
+			content: `---
+name: "API Documentation"
+author: "john"
+category: "docs"
+tags: ["api", "swagger"]
+id: "john-api-docs"
+---
+API documentation prompt`,
+			wantMeta: &models.PromptMeta{
+				Name:     "API Documentation",
+				Author:   "john",
+				Category: "docs",
+				Tags:     []string{"api", "swagger"},
+				ID:       "john-api-docs",
+			},
+			wantContent: "API documentation prompt",
+			wantError:   false,
+		},
+		{
 			name: "valid front matter with required fields only",
 			content: `---
 name: "Simple Prompt"

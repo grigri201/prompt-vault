@@ -165,13 +165,13 @@ func TestGetCommand_Integration_GistURLDisplay(t *testing.T) {
 					Username: "testuser",
 					Entries: []models.IndexEntry{
 						{
-							GistID:      "fedcba0987654321fedcba0987654321",
-							GistURL:     "https://gist.github.com/testuser/fedcba0987654321fedcba0987654321",
-							Name:        "No Variables Prompt",
-							Author:      "charlie",
-							Category:    "utility",
-							Version:     "1.0",
-							UpdatedAt:   time.Now(),
+							GistID:    "fedcba0987654321fedcba0987654321",
+							GistURL:   "https://gist.github.com/testuser/fedcba0987654321fedcba0987654321",
+							Name:      "No Variables Prompt",
+							Author:    "charlie",
+							Category:  "utility",
+							Version:   "1.0",
+							UpdatedAt: time.Now(),
 						},
 					},
 					UpdatedAt: time.Now(),
@@ -213,7 +213,7 @@ func TestGetCommand_Integration_GistURLDisplay(t *testing.T) {
 					Username: "testuser",
 					Entries: []models.IndexEntry{
 						{
-							GistID:    "localonly",
+							GistID: "localonly",
 							// GistURL is empty
 							Name:      "Local Prompt",
 							Author:    "dave",
@@ -402,7 +402,7 @@ func TestGetCommand_Integration_CompleteFlow(t *testing.T) {
 	cmd.SetArgs([]string{"get", "review"})
 
 	err := cmd.Execute()
-	
+
 	// Should fail due to TTY requirement for selector
 	if err == nil || !strings.Contains(err.Error(), "TTY") {
 		t.Errorf("Expected TTY error, got: %v", err)

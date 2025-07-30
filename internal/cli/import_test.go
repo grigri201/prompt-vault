@@ -35,10 +35,10 @@ func (m *MockImportManager) ImportPrompt(ctx context.Context, gistURL string, in
 
 // MockGistClientForImport is a mock implementation for import tests
 type MockGistClientForImport struct {
-	GetIndexFunc func(ctx context.Context) (*models.Index, error)
-	UpdateIndexFunc func(ctx context.Context, index *models.Index) error
-	GetGistFunc func(ctx context.Context, gistID string) (*github.Gist, error)
-	GetGistByURLFunc func(ctx context.Context, gistURL string) (*github.Gist, error)
+	GetIndexFunc      func(ctx context.Context) (*models.Index, error)
+	UpdateIndexFunc   func(ctx context.Context, index *models.Index) error
+	GetGistFunc       func(ctx context.Context, gistID string) (*github.Gist, error)
+	GetGistByURLFunc  func(ctx context.Context, gistURL string) (*github.Gist, error)
 	ExtractGistIDFunc func(gistURL string) (string, error)
 }
 
@@ -208,7 +208,7 @@ func TestImportCommand_Execute(t *testing.T) {
 func TestImportCommand_Integration(t *testing.T) {
 	// Test that the command is properly integrated with root command
 	root := &cobra.Command{Use: "pv"}
-	
+
 	// Mock dependencies
 	mockGistClient := &MockGistClientForImport{
 		GetIndexFunc: func(ctx context.Context) (*models.Index, error) {
