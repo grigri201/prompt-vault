@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -194,7 +195,7 @@ func TestPromptMeta_ValidateID(t *testing.T) {
 		},
 		{
 			name:      "ID too long",
-			id:        "a" + string(make([]byte, 100)),
+			id:        strings.Repeat("a", 101),
 			wantError: true,
 			errorMsg:  "ID must not exceed 100 characters",
 		},

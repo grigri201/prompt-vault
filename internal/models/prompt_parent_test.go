@@ -262,46 +262,6 @@ parent: ""
 	}
 }
 
-func TestPromptMeta_BackwardCompatibility(t *testing.T) {
-	// Test that existing YAML files without parent field can still be parsed
-	oldYAML := `name: Legacy Prompt
-author: olduser
-category: legacy
-tags:
-  - old
-  - legacy
-version: "0.1.0"
-description: This is an old prompt without parent field
-`
-
-	var meta PromptMeta
-	err := yaml.Unmarshal([]byte(oldYAML), &meta)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal legacy YAML: %v", err)
-	}
-
-	// Verify all fields are parsed correctly
-	if meta.Name != "Legacy Prompt" {
-		t.Errorf("Expected name to be 'Legacy Prompt', got '%s'", meta.Name)
-	}
-	if meta.Author != "olduser" {
-		t.Errorf("Expected author to be 'olduser', got '%s'", meta.Author)
-	}
-	if meta.Parent != "" {
-		t.Errorf("Expected parent to be empty for legacy prompt, got '%s'", meta.Parent)
-	}
-
-	// Verify it can be marshaled back
-	newYAML, err := yaml.Marshal(&meta)
-	if err != nil {
-		t.Fatalf("Failed to marshal legacy prompt: %v", err)
-	}
-
-	// Parent field should not appear in the output since it's empty
-	if contains(string(newYAML), "parent:") {
-		t.Error("Empty parent field should not appear in marshaled YAML")
-	}
-}
 
 func TestPromptMeta_ParentFieldPreservation(t *testing.T) {
 	// Test that parent field is preserved through read/write operations

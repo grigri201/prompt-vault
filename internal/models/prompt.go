@@ -26,19 +26,19 @@ func (m *PromptMeta) ValidateID() error {
 		return nil // ID is optional
 	}
 	
-	// ID can only contain alphanumeric characters, hyphens, and underscores
-	validID := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
-	if !validID.MatchString(m.ID) {
-		return errors.NewValidationErrorMsg("PromptMeta.ValidateID", 
-			"ID can only contain letters, numbers, hyphens, and underscores")
-	}
-	
-	// Check minimum and maximum length
+	// Check minimum and maximum length first
 	if len(m.ID) < 3 {
 		return errors.NewValidationErrorMsg("PromptMeta.ValidateID", "ID must be at least 3 characters long")
 	}
 	if len(m.ID) > 100 {
 		return errors.NewValidationErrorMsg("PromptMeta.ValidateID", "ID must not exceed 100 characters")
+	}
+	
+	// ID can only contain alphanumeric characters, hyphens, and underscores
+	validID := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	if !validID.MatchString(m.ID) {
+		return errors.NewValidationErrorMsg("PromptMeta.ValidateID", 
+			"ID can only contain letters, numbers, hyphens, and underscores")
 	}
 	
 	return nil

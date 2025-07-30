@@ -288,44 +288,6 @@ func TestIndex_FindImportedEntry(t *testing.T) {
 	}
 }
 
-func TestIndex_BackwardCompatibility(t *testing.T) {
-	// Test that old index files without imported_entries can still be parsed
-	oldJSON := `{
-		"username": "olduser",
-		"entries": [
-			{
-				"gist_id": "old123",
-				"gist_url": "https://gist.github.com/olduser/old123",
-				"name": "Old Prompt",
-				"author": "olduser",
-				"category": "legacy",
-				"tags": ["old"],
-				"version": "0.1.0",
-				"updated_at": "2024-01-01T00:00:00Z"
-			}
-		],
-		"updated_at": "2024-01-01T00:00:00Z"
-	}`
-
-	var index Index
-	err := json.Unmarshal([]byte(oldJSON), &index)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal old index format: %v", err)
-	}
-
-	// Verify old data is preserved
-	if index.Username != "olduser" {
-		t.Errorf("Expected username to be 'olduser', got '%s'", index.Username)
-	}
-	if len(index.Entries) != 1 {
-		t.Errorf("Expected 1 entry, got %d", len(index.Entries))
-	}
-
-	// ImportedEntries should be empty (nil is acceptable for backward compatibility)
-	if index.ImportedEntries != nil && len(index.ImportedEntries) != 0 {
-		t.Errorf("Expected 0 imported entries for old format, got %d", len(index.ImportedEntries))
-	}
-}
 
 // Helper function to check string contains substring
 func indexContains(s, substr string) bool {

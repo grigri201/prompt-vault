@@ -1,13 +1,13 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"github.com/grigri201/prompt-vault/internal/auth"
@@ -18,7 +18,6 @@ import (
 	"github.com/grigri201/prompt-vault/internal/models"
 	"github.com/grigri201/prompt-vault/internal/parser"
 	"github.com/grigri201/prompt-vault/internal/sync"
-	"github.com/grigri201/prompt-vault/internal/ui"
 	"github.com/grigri201/prompt-vault/internal/upload"
 )
 
@@ -192,39 +191,23 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 		
 		// Handle duplicate based on force flag
 		if !force {
-			// Interactive mode - show duplicate handler UI
-			p := tea.NewProgram(ui.NewDuplicateHandler(&duplicateMatch.Entry, prompt))
-			result, err := p.Run()
+			// Interactive mode - ask for confirmation
+			fmt.Fprintf(cmd.OutOrStdout(), "Update existing prompt '%s'? (Y/n): ", duplicateMatch.Entry.Name)
+			
+			reader := bufio.NewReader(cmd.InOrStdin())
+			response, err := reader.ReadString('\n')
 			if err != nil {
-				return errors.WrapWithMessage(err, "failed to run duplicate handler")
+				return errors.WrapWithMessage(err, "failed to read confirmation")
 			}
 			
-			handler := result.(ui.DuplicateHandlerModel)
-			
-			if handler.IsCancelled() {
+			response = strings.TrimSpace(strings.ToLower(response))
+			// Default is yes (empty response or 'y'/'yes')
+			if response != "" && response != "y" && response != "yes" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Upload cancelled.\n")
 				return errors.NewValidationErrorMsg("upload", "upload cancelled by user")
 			}
 			
-			switch handler.GetChoice() {
-			case ui.UpdateExisting:
-				// Continue with existing gist ID
-				fmt.Fprintf(cmd.OutOrStdout(), "Updating existing prompt...\n")
-			case ui.CreateNew:
-				// User wants to create new with different ID
-				newID := handler.GetNewID()
-				
-				// Update prompt with new ID
-				prompt.ID = newID
-				
-				// Validate the new ID
-				if err := prompt.ValidateID(); err != nil {
-					return errors.WrapWithMessage(err, "invalid ID")
-				}
-				existingGistID = ""
-				fmt.Fprintf(cmd.OutOrStdout(), "Creating new prompt with ID '%s'...\n", newID)
-			case ui.Cancel:
-				return errors.NewValidationErrorMsg("upload", "upload cancelled by user")
-			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Updating existing prompt...\n")
 		} else {
 			// Force mode - automatically update existing
 			fmt.Fprintf(cmd.OutOrStdout(), "Force mode: updating existing prompt\n")
