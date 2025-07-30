@@ -27,7 +27,7 @@ type SyncResult struct {
 type Service interface {
 	// SyncWithTimeout performs sync with configurable timeout
 	SyncWithTimeout(ctx context.Context, timeout time.Duration) (*SyncResult, error)
-	
+
 	// GetLastSyncTime returns when the last successful sync occurred
 	GetLastSyncTime() (time.Time, error)
 }
@@ -45,7 +45,7 @@ func NewService(configManager *config.Manager, cacheManager *cache.Manager) Serv
 	yamlParser := parser.NewYAMLParser(parser.YAMLParserConfig{
 		Strict: false, // Be lenient when syncing
 	})
-	
+
 	return &serviceImpl{
 		configManager: configManager,
 		cacheManager:  cacheManager,
@@ -56,37 +56,37 @@ func NewService(configManager *config.Manager, cacheManager *cache.Manager) Serv
 // SyncWithTimeout implements the Service interface
 func (s *serviceImpl) SyncWithTimeout(ctx context.Context, timeout time.Duration) (*SyncResult, error) {
 	startTime := time.Now()
-	
+
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	
+
 	// Get config
 	cfg, err := s.configManager.GetConfig()
 	if err != nil {
 		return nil, errors.WrapWithMessage(err, "failed to get config")
 	}
-	
+
 	if cfg.Token == "" {
 		return nil, errors.NewAuthErrorMsg("sync", "not authenticated. Please run 'pv login' first")
 	}
-	
+
 	// Create GitHub client
 	client, err := gist.NewClient(cfg.Token)
 	if err != nil {
 		return nil, errors.WrapWithMessage(err, "failed to create GitHub client")
 	}
-	
+
 	// Get all gists for the user
 	gists, err := client.ListUserGists(ctx, cfg.Username)
 	if err != nil {
 		return nil, errors.WrapWithMessage(err, "failed to list gists")
 	}
-	
+
 	result := &SyncResult{
 		Duration: time.Since(startTime),
 	}
-	
+
 	if len(gists) == 0 {
 		// Create a new empty index
 		index := &models.Index{
@@ -99,11 +99,11 @@ func (s *serviceImpl) SyncWithTimeout(ctx context.Context, timeout time.Duration
 		}
 		return result, nil
 	}
-	
+
 	// Process gists and build index
 	var entries []models.IndexEntry
 	processedCount := 0
-	
+
 	for _, g := range gists {
 		// Check context cancellation
 		select {
@@ -111,32 +111,45 @@ func (s *serviceImpl) SyncWithTimeout(ctx context.Context, timeout time.Duration
 			return nil, errors.NewNetworkErrorMsg("sync", "sync operation timed out")
 		default:
 		}
-		
+
 		if err := s.processGist(ctx, g, client, &entries, &processedCount); err != nil {
 			// Log error but continue with other gists
 			continue
 		}
 	}
-	
+
 	// Get existing index to compare
 	existingIndex, err := s.cacheManager.GetIndex()
 	var existingCount int
 	if err == nil && existingIndex != nil {
 		existingCount = len(existingIndex.Entries)
 	}
-	
+
 	// Create new index
 	index := &models.Index{
 		Username:  cfg.Username,
 		Entries:   entries,
 		UpdatedAt: time.Now(),
 	}
-	
+
 	// Save the index
 	if err := s.cacheManager.SaveIndex(index); err != nil {
 		return nil, errors.WrapWithMessage(err, "failed to save index")
 	}
-	
+
+	// Always update the GitHub index to ensure consistency
+	// This handles cases where:
+	// 1. Index doesn't exist on GitHub (will be created)
+	// 2. Local changes need to be pushed to GitHub
+	// 3. Sync from GitHub updated local index which needs to be reflected back
+	_, err = client.UpdateIndexGist(ctx, cfg.Username, index)
+	if err != nil {
+		// Don't fail the sync if we can't update GitHub, but log the error
+		// The local index is still valid and will be pushed on next sync
+		// This matches the behavior in sync.go where index update failures are warnings
+		return result, errors.WrapWithMessage(err, "failed to update GitHub index (local sync completed successfully)")
+	}
+
 	// Calculate results
 	result.TotalPrompts = len(entries)
 	result.PromptsAdded = len(entries) - existingCount
@@ -145,7 +158,7 @@ func (s *serviceImpl) SyncWithTimeout(ctx context.Context, timeout time.Duration
 		result.PromptsAdded = 0
 	}
 	result.Duration = time.Since(startTime)
-	
+
 	return result, nil
 }
 
@@ -155,38 +168,38 @@ func (s *serviceImpl) processGist(ctx context.Context, g *github.Gist, client *g
 	if g.ID == nil {
 		return nil
 	}
-	
+
 	// Skip if gist is public (we only sync private prompts)
 	if g.Public != nil && *g.Public {
 		return nil
 	}
-	
+
 	// Skip index gists - check if any file name ends with -promptvault-index.json
 	for filename := range g.Files {
 		if strings.HasSuffix(string(filename), "-promptvault-index.json") {
 			return nil
 		}
 	}
-	
+
 	// Get the full gist with file contents
 	fullGist, err := client.GetGist(ctx, *g.ID)
 	if err != nil {
 		return err
 	}
-	
+
 	// Look for a prompt file in the gist
 	for _, file := range fullGist.Files {
 		if file.Content == nil {
 			continue
 		}
-		
+
 		// Try to parse as a prompt
 		prompt, err := s.yamlParser.ParsePromptFile(*file.Content)
 		if err != nil {
 			// Not a valid prompt, skip
 			continue
 		}
-		
+
 		// Set gist information
 		prompt.GistID = *g.ID
 		if g.HTMLURL != nil {
@@ -195,21 +208,21 @@ func (s *serviceImpl) processGist(ctx context.Context, g *github.Gist, client *g
 		if g.UpdatedAt != nil {
 			prompt.UpdatedAt = g.UpdatedAt.Time
 		}
-		
+
 		// Cache the prompt
 		if err := s.cacheManager.SavePrompt(prompt); err != nil {
 			// Log but don't fail
 			continue
 		}
-		
+
 		// Add to index
 		*entries = append(*entries, prompt.ToIndexEntry())
 		*processedCount++
-		
+
 		// Only process first valid prompt file in the gist
 		break
 	}
-	
+
 	return nil
 }
 
@@ -219,10 +232,10 @@ func (s *serviceImpl) GetLastSyncTime() (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
-	
+
 	if index == nil {
 		return time.Time{}, errors.NewFileSystemErrorMsg("GetLastSyncTime", "no index found")
 	}
-	
+
 	return index.UpdatedAt, nil
 }

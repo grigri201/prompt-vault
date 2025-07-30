@@ -1,14 +1,10 @@
 package cli
 
 import (
-	"context"
 	"fmt"
-	"time"
 
-	"github.com/spf13/cobra"
-	"github.com/grigri201/prompt-vault/internal/cache"
 	"github.com/grigri201/prompt-vault/internal/config"
-	"github.com/grigri201/prompt-vault/internal/gist"
+	"github.com/spf13/cobra"
 )
 
 // AutoSyncCommands are commands that should trigger auto-sync after execution
@@ -21,11 +17,11 @@ var AutoSyncCommands = map[string]bool{
 // WrapWithAutoSync wraps a command to perform sync after execution
 func WrapWithAutoSync(cmd *cobra.Command) {
 	originalRunE := cmd.RunE
-	
+
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		// Run the original command
 		err := originalRunE(cmd, args)
-		
+
 		// Check if this command should trigger auto-sync
 		if AutoSyncCommands[cmd.Name()] && err == nil {
 			// Get auto-sync setting from config
@@ -35,15 +31,15 @@ func WrapWithAutoSync(cmd *cobra.Command) {
 				// Check if auto-sync is enabled (we can add this to config later)
 				// For now, always sync after these commands
 				if shouldAutoSync(cfg) {
-					fmt.Fprintln(cmd.OutOrStderr(), "\nSyncing index with GitHub...")
-					syncErr := performAutoSync(cmd)
+					fmt.Fprintln(cmd.OutOrStderr(), "\nSyncing with GitHub...")
+					syncErr := performFullSync(cmd)
 					if syncErr != nil {
 						fmt.Fprintf(cmd.OutOrStderr(), "Warning: Auto-sync failed: %v\n", syncErr)
 					}
 				}
 			}
 		}
-		
+
 		return err
 	}
 }
@@ -55,45 +51,8 @@ func shouldAutoSync(cfg *config.Config) bool {
 	return true
 }
 
-// performAutoSync performs the index sync between local and GitHub
+// performAutoSync is deprecated - use performFullSync from sync_utils.go
+// This function is kept for backward compatibility but should not be used
 func performAutoSync(cmd *cobra.Command) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	
-	// Get config
-	configManager := config.NewManager()
-	cfg, err := configManager.GetConfig()
-	if err != nil {
-		return err
-	}
-	
-	if cfg.Token == "" {
-		return nil // Not authenticated, skip sync
-	}
-	
-	// Create GitHub client
-	client, err := gist.NewClient(cfg.Token)
-	if err != nil {
-		return err
-	}
-	
-	// Get cache manager
-	cacheManager := cache.NewManager()
-	
-	// Get local index
-	localIndex, err := cacheManager.GetIndex()
-	if err != nil {
-		return err
-	}
-	
-	// Update GitHub index
-	if localIndex != nil {
-		_, err = client.UpdateIndexGist(ctx, cfg.Username, localIndex)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintln(cmd.OutOrStderr(), "✓ Index synced to GitHub")
-	}
-	
-	return nil
+	return performFullSync(cmd)
 }

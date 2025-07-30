@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/grigri201/prompt-vault/internal/auth"
 	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
+	"github.com/grigri201/prompt-vault/internal/interfaces"
 )
 
 // newLoginCmd creates the login command
@@ -62,8 +62,9 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return errors.NewValidationErrorMsg("login", "token cannot be empty")
 	}
 
-	// Create auth manager
-	authManager := auth.NewManager()
+	// Get auth manager from container
+	cmdCtx := GetCommandContext()
+	authManager := cmdCtx.Container.AuthManager
 
 	// Validate token with GitHub API
 	fmt.Fprintln(cmd.OutOrStdout(), "\nValidating token...")
@@ -93,7 +94,7 @@ func readToken(cmd *cobra.Command) (string, error) {
 }
 
 // validateAndSaveToken validates the token and saves it if valid
-func validateAndSaveToken(ctx context.Context, authManager *auth.Manager, token string) (string, error) {
+func validateAndSaveToken(ctx context.Context, authManager interfaces.AuthManager, token string) (string, error) {
 	// Create a temporary gist client to validate the token
 	client, err := gist.NewClient(token)
 	if err != nil {

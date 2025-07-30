@@ -60,7 +60,7 @@ func NewDuplicateConflictError(operation string, existingName, existingAuthor, e
 	if existingID != "" {
 		message += fmt.Sprintf(" (ID: %s)", existingID)
 	}
-	
+
 	return &DuplicateConflictError{
 		AppError: AppError{
 			Op:      operation,

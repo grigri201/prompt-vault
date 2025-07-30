@@ -534,31 +534,31 @@ func (c *Client) GetIndexGist(ctx context.Context, username string) (*models.Ind
 					if gist.ID == nil {
 						return nil, "", errors.NewValidationErrorMsg("GetIndexGist", "gist ID is nil")
 					}
-					
+
 					// Get the full gist with content
 					fullGist, _, err := c.github.Gists.Get(ctx, *gist.ID)
 					if err != nil {
 						return nil, "", errors.WrapWithMessage(err, "failed to get index gist content")
 					}
-					
+
 					// Get the file content
 					if file, ok := fullGist.Files[github.GistFilename(indexFilename)]; ok {
 						if file.Content == nil {
 							return nil, "", errors.NewValidationErrorMsg("GetIndexGist", "index file has no content")
 						}
-						
+
 						// Parse the index JSON
 						var index models.Index
 						if err := json.Unmarshal([]byte(*file.Content), &index); err != nil {
 							return nil, "", errors.WrapWithMessage(err, "failed to parse index JSON")
 						}
-						
+
 						// Ensure username is set
 						index.Username = username
-						
+
 						return &index, *gist.ID, nil
 					}
-					
+
 					return nil, "", errors.NewValidationErrorMsg("GetIndexGist", "index file not found in gist")
 				}
 			}

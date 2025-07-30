@@ -7,12 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/grigri201/prompt-vault/internal/cache"
 	"github.com/grigri201/prompt-vault/internal/errors"
 )
-
-// For testing
-var getCachePathFunc = cache.GetCachePath
 
 // newListCmd creates the list command
 func newListCmd() *cobra.Command {
@@ -38,7 +34,7 @@ category, and version.`,
 func runList(cmd *cobra.Command, page int) error {
 	// Create cache manager
 	cachePath := getCachePathFunc()
-	cacheManager := cache.NewManagerWithPath(cachePath)
+	_, cacheManager := createManagersWithPath(cachePath)
 
 	// Get index from cache
 	index, err := cacheManager.GetIndex()

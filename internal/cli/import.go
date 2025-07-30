@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -39,7 +40,7 @@ If the prompt is already imported, you'll be prompted to update it if the versio
 
 	// Apply auto-sync middleware
 	WrapWithAutoSync(cmd)
-	
+
 	return cmd
 }
 
@@ -76,6 +77,11 @@ type gistClientForImport interface {
 }
 
 func runImport(cmd *cobra.Command, opts *importOptions) error {
+	// Perform pre-sync to ensure we have latest index and avoid conflicts
+	if err := performPreSync(cmd, false); err != nil {
+		return err
+	}
+
 	// Initialize dependencies
 	authManager := auth.NewManager()
 	token, err := authManager.GetToken()
@@ -172,18 +178,22 @@ func (a *gistClientAdapter) UpdateIndex(ctx context.Context, index *models.Index
 func runImportWithDeps(cmd *cobra.Command, opts *importOptions, manager importManager, gistClient gistClientForImport) error {
 	ctx := context.Background()
 
-	// Get current index
-	index, err := gistClient.GetIndex(ctx)
+	// Create cache manager to work with local index (like upload does)
+	_, cacheManager := createManagers()
+
+	// Get current local index after preSync
+	index, err := cacheManager.GetIndex()
 	if err != nil {
-		return errors.WrapWithMessage(err, errors.ErrMsgNetworkTimeout)
+		// If index doesn't exist, create a new one (like upload does)
+		index = &models.Index{
+			Username:        "", // Will be set during sync
+			Entries:         []models.IndexEntry{},
+			ImportedEntries: []models.IndexEntry{},
+			UpdatedAt:       time.Now(),
+		}
 	}
 
-	// Initialize ImportedEntries if nil
-	if index.ImportedEntries == nil {
-		index.ImportedEntries = []models.IndexEntry{}
-	}
-
-	// Import the prompt
+	// Import the prompt (this will modify the index's ImportedEntries)
 	result, err := manager.ImportPrompt(ctx, opts.gistURL, index)
 	if err != nil {
 		errMsg := errors.GetImportErrorMessage(err)
@@ -191,10 +201,16 @@ func runImportWithDeps(cmd *cobra.Command, opts *importOptions, manager importMa
 		return err
 	}
 
-	// Update the index
-	if err := gistClient.UpdateIndex(ctx, index); err != nil {
-		return errors.WrapWithMessage(err, errors.ErrMsgImportIndexUpdate)
+	// Update the local index timestamp
+	index.UpdatedAt = time.Now()
+
+	// Save the updated local index (like upload does)
+	if err := cacheManager.SaveIndex(index); err != nil {
+		// Don't fail the import if index saving fails (like upload does)
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to update local index: %v\n", err)
 	}
+
+	// GitHub index update will be handled by auto-sync middleware (like upload does)
 
 	// Display result
 	if result.IsUpdate {

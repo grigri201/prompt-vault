@@ -24,7 +24,7 @@ func newConfigCmd() *cobra.Command {
 
 func runConfig(cmd *cobra.Command, args []string) error {
 	// Create config manager
-	cfgManager := config.NewManager()
+	cfgManager, _ := createManagers()
 
 	// Get configuration
 	cfg, err := cfgManager.GetConfig()

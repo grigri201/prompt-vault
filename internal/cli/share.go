@@ -7,7 +7,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/grigri201/prompt-vault/internal/auth"
-	"github.com/grigri201/prompt-vault/internal/cache"
 	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
 	"github.com/grigri201/prompt-vault/internal/search"
@@ -159,7 +158,7 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 	if opts.gistID == "" {
 		// Get cache manager
 		cachePath := getCachePathFunc()
-		cacheManager := cache.NewManagerWithPath(cachePath)
+		_, cacheManager := createManagersWithPath(cachePath)
 
 		// Load index
 		index, err := cacheManager.GetIndex()
@@ -219,7 +218,7 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 	} else if !isGistID(opts.gistID) {
 		// If argument is not a gist ID, treat it as a keyword search
 		cachePath := getCachePathFunc()
-		cacheManager := cache.NewManagerWithPath(cachePath)
+		_, cacheManager := createManagersWithPath(cachePath)
 
 		// Load index
 		index, err := cacheManager.GetIndex()

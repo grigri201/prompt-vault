@@ -25,7 +25,7 @@ func (m *PromptMeta) ValidateID() error {
 	if m.ID == "" {
 		return nil // ID is optional
 	}
-	
+
 	// Check minimum and maximum length first
 	if len(m.ID) < 3 {
 		return errors.NewValidationErrorMsg("PromptMeta.ValidateID", "ID must be at least 3 characters long")
@@ -33,14 +33,14 @@ func (m *PromptMeta) ValidateID() error {
 	if len(m.ID) > 100 {
 		return errors.NewValidationErrorMsg("PromptMeta.ValidateID", "ID must not exceed 100 characters")
 	}
-	
+
 	// ID can only contain alphanumeric characters, hyphens, and underscores
 	validID := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 	if !validID.MatchString(m.ID) {
-		return errors.NewValidationErrorMsg("PromptMeta.ValidateID", 
+		return errors.NewValidationErrorMsg("PromptMeta.ValidateID",
 			"ID can only contain letters, numbers, hyphens, and underscores")
 	}
-	
+
 	return nil
 }
 
@@ -58,12 +58,12 @@ func (m *PromptMeta) Validate() error {
 	if len(m.Tags) == 0 {
 		return errors.NewValidationErrorMsg("PromptMeta.Validate", "at least one tag is required")
 	}
-	
+
 	// Validate ID if present
 	if err := m.ValidateID(); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 

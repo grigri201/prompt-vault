@@ -8,8 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/grigri201/prompt-vault/internal/cache"
-	"github.com/grigri201/prompt-vault/internal/config"
 	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
 	"github.com/grigri201/prompt-vault/internal/models"
@@ -39,7 +37,7 @@ func runSync(cmd *cobra.Command, verbose bool) error {
 
 	// Create cache manager
 	cachePath := getCachePathFunc()
-	cacheManager := cache.NewManagerWithPath(cachePath)
+	_, cacheManager := createManagersWithPath(cachePath)
 
 	// Check if cache directory exists before initialization
 	_, dirExistsBefore := os.Stat(cachePath)
@@ -56,7 +54,7 @@ func runSync(cmd *cobra.Command, verbose bool) error {
 	}
 
 	// Get config to get username and token
-	cfgManager := config.NewManager()
+	cfgManager, _ := createManagers()
 	cfg, err := cfgManager.GetConfig()
 	if err != nil {
 		return errors.WrapWithMessage(err, "failed to get config")
@@ -87,7 +85,7 @@ func runSync(cmd *cobra.Command, verbose bool) error {
 			// No index gist exists yet
 			fmt.Fprintln(cmd.OutOrStdout(), "\nNo prompts found online.")
 			fmt.Fprintln(cmd.OutOrStdout(), "Upload your first prompt with 'pv upload <file>' to get started.")
-			
+
 			// Create empty local index
 			emptyIndex := &models.Index{
 				Username:  cfg.Username,
@@ -123,7 +121,7 @@ func runSync(cmd *cobra.Command, verbose bool) error {
 	for i, entry := range index.Entries {
 		// Show progress
 		if verbose {
-			fmt.Fprintf(cmd.OutOrStdout(), "\n[%d/%d] Fetching prompt: %s (gist %s)\n", 
+			fmt.Fprintf(cmd.OutOrStdout(), "\n[%d/%d] Fetching prompt: %s (gist %s)\n",
 				i+1, len(index.Entries), entry.Name, entry.GistID)
 		}
 
@@ -133,12 +131,12 @@ func runSync(cmd *cobra.Command, verbose bool) error {
 			// Check if it's a 404 error (gist deleted)
 			errMsg := strings.ToLower(err.Error())
 			if strings.Contains(errMsg, "404") || strings.Contains(errMsg, "not found") {
-				fmt.Fprintf(cmd.OutOrStderr(), "⚠ Prompt '%s' (gist %s) has been deleted from GitHub\n", 
+				fmt.Fprintf(cmd.OutOrStderr(), "⚠ Prompt '%s' (gist %s) has been deleted from GitHub\n",
 					entry.Name, entry.GistID)
 				deletedCount++
 				continue // Skip this entry
 			}
-			
+
 			// For other errors, report but continue
 			fmt.Fprintf(cmd.OutOrStderr(), "Warning: Failed to fetch prompt '%s': %v\n", entry.Name, err)
 			if verbose {
@@ -169,7 +167,7 @@ func runSync(cmd *cobra.Command, verbose bool) error {
 	if deletedCount > 0 {
 		index.Entries = validEntries
 		index.UpdatedAt = time.Now()
-		
+
 		// Update the online index
 		_, err = client.UpdateIndexGist(cmd.Context(), cfg.Username, index)
 		if err != nil {

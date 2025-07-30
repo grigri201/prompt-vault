@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"context"
+	
 	"github.com/spf13/cobra"
+	"github.com/grigri201/prompt-vault/internal/container"
 )
 
 var (
@@ -43,6 +46,15 @@ your clipboard.`,
 
 // Execute runs the root command
 func Execute() error {
+	c := container.NewContainer()
+	if err := c.Initialize(context.Background()); err != nil {
+		return err
+	}
+	defer c.Cleanup()
+	
+	// Set global command context
+	SetCommandContext(NewCommandContext(c))
+	
 	return NewRootCmd().Execute()
 }
 

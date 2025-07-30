@@ -47,7 +47,7 @@ Usage:
 
 	// Apply auto-sync middleware
 	WrapWithAutoSync(cmd)
-	
+
 	return cmd
 }
 
@@ -82,7 +82,7 @@ func isGistIDOrURL(input string) bool {
 func runDeleteWithSelection(cmd *cobra.Command, input string, force bool) error {
 	// Create cache manager
 	cachePath := getCachePathFunc()
-	cacheManager := cache.NewManagerWithPath(cachePath)
+	_, cacheManager := createManagersWithPath(cachePath)
 
 	// Get index from cache
 	index, err := cacheManager.GetIndex()

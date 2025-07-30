@@ -11,20 +11,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/grigri201/prompt-vault/internal/auth"
-	"github.com/grigri201/prompt-vault/internal/cache"
-	"github.com/grigri201/prompt-vault/internal/config"
 	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
 	"github.com/grigri201/prompt-vault/internal/models"
 	"github.com/grigri201/prompt-vault/internal/parser"
-	"github.com/grigri201/prompt-vault/internal/sync"
 	"github.com/grigri201/prompt-vault/internal/upload"
 )
 
 // newUploadCmd creates the upload command
 func newUploadCmd() *cobra.Command {
 	var force bool
-	
+
 	cmd := &cobra.Command{
 		Use:     "upload [file]",
 		Aliases: []string{"up"},
@@ -47,12 +44,12 @@ Generate {format} documentation for the following API:
 			return runUpload(cmd, args, force)
 		},
 	}
-	
+
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Automatically overwrite existing prompts without confirmation")
-	
+
 	// Apply auto-sync middleware
 	WrapWithAutoSync(cmd)
-	
+
 	return cmd
 }
 
@@ -122,39 +119,13 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 		RetryCount: 3,
 	})
 
-	// Create cache manager
-	cacheManager := cache.NewManager()
-	
-	// Create config manager
-	configManager := config.NewManager()
-	
-	// Sync with GitHub before uploading
-	fmt.Fprintf(cmd.OutOrStdout(), "Syncing with GitHub...\n")
-	syncService := sync.NewService(configManager, cacheManager)
-	
-	syncCtx := context.Background()
-	syncResult, err := syncService.SyncWithTimeout(syncCtx, 30*time.Second)
-	if err != nil {
-		// Handle sync failure
-		if !force {
-			// In interactive mode, ask user if they want to continue
-			fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Failed to sync with GitHub: %v\n", err)
-			fmt.Fprintf(cmd.OutOrStdout(), "Continue with potentially outdated data? (y/N): ")
-			
-			var response string
-			fmt.Scanln(&response)
-			if response != "y" && response != "Y" {
-				return errors.NewValidationErrorMsg("upload", "upload cancelled by user")
-			}
-		} else {
-			// In force mode, just warn and continue
-			fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Failed to sync with GitHub: %v\n", err)
-			fmt.Fprintf(cmd.ErrOrStderr(), "Continuing with potentially outdated data due to --force flag\n")
-		}
-	} else {
-		// Display sync results
-		fmt.Fprintf(cmd.OutOrStdout(), "Synced %d prompts\n", syncResult.TotalPrompts)
+	// Perform pre-sync to ensure we have latest data for duplicate detection
+	if err := performPreSync(cmd, force); err != nil {
+		return err
 	}
+
+	// Create cache manager after sync
+	_, cacheManager := createManagers()
 
 	// Read current index (should be updated after sync)
 	index, err := cacheManager.GetIndex()
@@ -175,10 +146,10 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 	}
 
 	var existingGistID string
-	
+
 	if duplicateMatch != nil {
 		existingGistID = duplicateMatch.Entry.GistID
-		
+
 		// Log the type of match found
 		switch duplicateMatch.MatchType {
 		case upload.MatchByID:
@@ -188,25 +159,25 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 		case upload.MatchByGistID:
 			fmt.Fprintf(cmd.OutOrStdout(), "Found existing gist %s\n", prompt.GistID)
 		}
-		
+
 		// Handle duplicate based on force flag
 		if !force {
 			// Interactive mode - ask for confirmation
 			fmt.Fprintf(cmd.OutOrStdout(), "Update existing prompt '%s'? (Y/n): ", duplicateMatch.Entry.Name)
-			
+
 			reader := bufio.NewReader(cmd.InOrStdin())
 			response, err := reader.ReadString('\n')
 			if err != nil {
 				return errors.WrapWithMessage(err, "failed to read confirmation")
 			}
-			
+
 			response = strings.TrimSpace(strings.ToLower(response))
 			// Default is yes (empty response or 'y'/'yes')
 			if response != "" && response != "y" && response != "yes" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Upload cancelled.\n")
 				return errors.NewValidationErrorMsg("upload", "upload cancelled by user")
 			}
-			
+
 			fmt.Fprintf(cmd.OutOrStdout(), "Updating existing prompt...\n")
 		} else {
 			// Force mode - automatically update existing
@@ -276,7 +247,7 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 	// Update the index
 	indexEntry := prompt.ToIndexEntry()
 	updated := false
-	
+
 	// If we found a duplicate, update that entry
 	if duplicateMatch != nil {
 		for i, entry := range index.Entries {
@@ -287,7 +258,7 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 			}
 		}
 	}
-	
+
 	// If not updated yet, look for name+author match (backward compatibility)
 	if !updated {
 		for i, entry := range index.Entries {
@@ -298,7 +269,7 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 			}
 		}
 	}
-	
+
 	// If still not updated, it's a new entry
 	if !updated {
 		index.Entries = append(index.Entries, indexEntry)
