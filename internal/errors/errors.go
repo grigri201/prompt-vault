@@ -24,9 +24,10 @@ const (
 // AppError represents application errors with context
 type AppError struct {
 	Type    ErrorType
-	Op      string // Operation that failed
-	Err     error  // Underlying error
-	Message string // User-friendly message
+	Op      string                 // Operation that failed
+	Err     error                  // Underlying error
+	Message string                 // User-friendly message
+	Context map[string]interface{} // Additional context information
 }
 
 // Error returns the error message
@@ -180,6 +181,54 @@ func WrapError(op string, err error) error {
 
 	// Create new AppError with automatic type detection
 	return NewError(op, err)
+}
+
+// NewErrorWithContext creates a new AppError with additional context
+func NewErrorWithContext(errorType ErrorType, op string, err error, context map[string]interface{}) *AppError {
+	return &AppError{
+		Type:    errorType,
+		Op:      op,
+		Err:     err,
+		Message: fmt.Sprintf("%s: %v", op, err),
+		Context: context,
+	}
+}
+
+// NewErrorWithContextMsg creates a new AppError with custom message and context
+func NewErrorWithContextMsg(errorType ErrorType, op string, message string, context map[string]interface{}) *AppError {
+	err := fmt.Errorf("%s", message)
+	return &AppError{
+		Type:    errorType,
+		Op:      op,
+		Err:     err,
+		Message: message,
+		Context: context,
+	}
+}
+
+// Convenience functions for common context scenarios
+
+// NewValidationErrorWithField creates a validation error with field context
+func NewValidationErrorWithField(op, field, message string) *AppError {
+	err := fmt.Errorf("%s", message)
+	return NewErrorWithContext(ErrTypeValidation, op, err, map[string]interface{}{
+		"field": field,
+	})
+}
+
+// NewNetworkErrorWithURL creates a network error with URL context
+func NewNetworkErrorWithURL(op, url, message string, err error) *AppError {
+	return NewErrorWithContext(ErrTypeNetwork, op, err, map[string]interface{}{
+		"url":     url,
+		"message": message,
+	})
+}
+
+// NewFileSystemErrorWithPath creates a file system error with path context
+func NewFileSystemErrorWithPath(op, path string, err error) *AppError {
+	return NewErrorWithContext(ErrTypeFileSystem, op, err, map[string]interface{}{
+		"path": path,
+	})
 }
 
 // determineErrorType automatically determines the error type based on error content
