@@ -28,17 +28,15 @@ pv login
 ### Managing Prompts
 
 ```bash
-# Upload a prompt template
-pv upload template.yaml
+# Add a prompt template (local file or Gist URL)
+pv add template.yaml
+pv add https://gist.github.com/user/gist-id
 
-# List all prompts
-pv list
-
-# Search prompts
+# Search and use prompts
 pv get [keyword]
 
 # Delete a prompt
-pv delete <prompt-name>
+pv del <prompt-name>
 
 # Sync local cache
 pv sync

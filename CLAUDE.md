@@ -5,6 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build and Development Commands
 
 ```bash
+# Generate Wire dependency injection code (required before building)
+go generate ./...
+# or directly
+wire ./cmd/pv/
+
 # Build the application
 go build -o pv cmd/pv/main.go
 
@@ -29,54 +34,60 @@ go fmt ./...
 
 # Check for linting issues
 go vet ./...
+
+# Run quality checks (from scripts)
+./scripts/quality_checks.sh
+
+# Run functional tests
+./scripts/functional_tests.sh
+
+# Cross-platform build
+./scripts/cross_platform_build.sh
 ```
 
 ## Architecture Overview
 
-This is a CLI application for managing prompt templates using GitHub Gists as storage backend. The architecture follows clean architecture principles with clear separation of concerns.
+This is a CLI application for managing prompt templates using GitHub Gists as storage backend. The architecture follows clean architecture principles with clear separation of concerns and uses Google Wire for dependency injection.
 
 ### Core Components
 
 1. **CLI Layer** (`internal/cli/`)
    - Entry point for all commands using Cobra framework
-   - Each command has its own file (e.g., `sync.go`, `upload.go`, `delete.go`)
-   - Commands use dependency injection pattern for testability
-   - Interactive UI components use Bubble Tea framework
+   - Commands: `add` (merged upload/import), `get`, `del`, `sync`, `share`, `login`, `config`
+   - Each command implements sync middleware for automatic synchronization
+   - Interactive UI components use Bubble Tea v2 framework
 
 2. **Domain Models** (`internal/models/`)
-   - `Prompt`: Core model representing a prompt template with YAML frontmatter
-   - `Index`: Maintains list of all prompts with metadata
-   - `PromptMeta`: Metadata structure for prompts (name, author, category, tags, etc.)
+   - `Prompt`: Core model with YAML frontmatter and content
+   - `Index`: Tracks all prompts with `entries` and `imported_entries`
+   - `PromptMeta`: Metadata (name, author, tags, version, description, parent, id)
+   - Note: `category` field has been removed from the codebase
 
 3. **Storage Layers**
-   - **GitHub Gist API** (`internal/gist/`): Handles all GitHub Gist operations
-   - **Local Cache** (`internal/cache/`): Manages local file cache in `~/.cache/prompt-vault/prompts/`
-   - **Config** (`internal/config/`): Manages application configuration in `~/.config/prompt-vault/`
-   - **Auth** (`internal/auth/`): Handles GitHub token authentication
+   - **GitHub Gist API** (`internal/gist/`): All GitHub Gist operations with retry logic
+   - **Local Cache** (`internal/cache/`): File cache in `~/.cache/prompt-vault/prompts/`
+   - **Config** (`internal/config/`): App configuration in `~/.config/prompt-vault/`
+   - **Auth** (`internal/auth/`): GitHub token authentication management
 
-4. **Unified Components**
-   - **YAMLParser** (`internal/parser/yaml_parser.go`): Configurable YAML parsing with strict/lenient modes
-   - **GistOperations** (`internal/gist/operations.go`): Wrapper for Gist operations with retry logic and 404 handling
-   - **Standardized Error Handling** (`internal/errors/`): AppError types with automatic error categorization
+4. **Core Services**
+   - **Sync Manager** (`internal/sync/`): Unified sync logic used by all commands
+   - **Import Manager** (`internal/imports/`): Handles Gist URL imports
+   - **Share Manager** (`internal/share/`): Creates public Gists for sharing
+   - **Search** (`internal/search/`): Fuzzy search across prompts
+   - **Parser** (`internal/parser/`): YAML parsing with strict/lenient modes
 
-5. **Managers Pattern & Interfaces**
-   - Components implement Manager pattern with `Initialize()` and `Cleanup()` methods
-   - Base manager in `internal/managers/` provides common functionality
-   - **Interface Segregation** (`internal/interfaces/`):
-     - `CacheManager`, `CacheReader`, `CacheWriter`: Cache operations
-     - `AuthManager`, `AuthReader`, `AuthWriter`: Authentication operations
-     - `Manager`: Base interface for lifecycle management
-   - Managers communicate through interfaces, not direct dependencies
+5. **Infrastructure**
+   - **Container** (`internal/container/`): Dependency injection container
+   - **Wire** (`cmd/pv/wire.go`, `internal/wire/`): Wire configuration and providers
+   - **Interfaces** (`internal/interfaces/`): Interface definitions for all managers
+   - **Errors** (`internal/errors/`): Standardized AppError with automatic categorization
+   - **Paths** (`internal/paths/`): Centralized path management with atomic writes
 
-6. **Container Pattern** (`internal/container/`)
-   - Dependency injection container that initializes all managers
-   - Provides both production and test containers
-   - Uses interfaces for managers to enable testing and loose coupling
-   - Exception: ConfigManager uses concrete type to avoid circular dependencies
-
-7. **Path Management** (`internal/paths/`)
-   - Centralized path handling for all file operations
-   - Supports atomic writes and secure file permissions
+6. **UI Components** (`internal/ui/`)
+   - Form: Interactive input forms
+   - Selector: List selection with search
+   - Paginator: Paginated list display
+   - Progress: Progress indicators
 
 ## Key Workflows
 
@@ -85,24 +96,34 @@ This is a CLI application for managing prompt templates using GitHub Gists as st
 2. Prompted for GitHub personal access token
 3. Token validated against GitHub API
 4. Token stored securely in config file
+5. Post-login sync executed automatically
 
-### Sync Workflow
-1. Connects to GitHub using stored token
-2. Fetches all gists for authenticated user
-3. Filters for prompt files (YAML frontmatter)
-4. Downloads and caches prompts locally
-5. Updates index.json with metadata
+### Unified Sync Strategy
+The app uses timestamp-based bidirectional sync:
+- Compares local and remote `index.json` `updated_at` timestamps
+- Always uses the newer version (no manual conflict resolution)
+- Sync is called:
+  - **Pre-command**: Before `add`, `get`, `share`, `del` (ensures latest data)
+  - **Post-command**: After `login`, `add`, `del` (pushes changes)
+  - **Manual**: Via `pv sync` command
+
+### Add Command Flow (Unified Upload/Import)
+1. Pre-sync to ensure latest data
+2. Auto-detects input type (file vs Gist URL)
+3. For files: Creates Gist, updates local cache
+4. For URLs: Adds to `imported_entries` in index
+5. Post-sync to push changes
 
 ### Prompt File Format
 ```yaml
 ---
 name: "Prompt Name"
 author: "username"
-category: "category"
 tags: ["tag1", "tag2"]
 version: "1.0"
 description: "Description"
 parent: "parent-gist-id"  # Optional, for shared prompts
+id: "custom-id"          # Optional, custom identifier
 ---
 Prompt content with {variables} to fill
 ```
@@ -111,25 +132,33 @@ Prompt content with {variables} to fill
 
 The project follows TDD methodology:
 - Unit tests for all components
-- Integration tests for workflows
+- Integration tests in `internal/integration/`
+- Validation tests in `internal/validation/`
 - Mock interfaces for external dependencies
 - Test helpers in `internal/testhelpers/`
 
 ## Important Implementation Details
 
-1. **Gist Storage**: Each prompt is stored as a single file in a GitHub Gist
-2. **Index Management**: A special `index.json` file tracks all prompts
-3. **Variable Handling**: Variables in prompts use `{variable}` syntax
-4. **Error Handling**: 
-   - Custom AppError types with automatic categorization
-   - Error types: Auth, Network, FileSystem, Parsing, Validation
-   - Standardized error creation with `NewError` and `WrapError`
-   - No direct `fmt.Errorf` usage - all errors use AppError
-5. **UI Components**: Custom Bubble Tea models for forms, selectors, and progress indicators
-6. **Code Organization**:
-   - No code duplication - unified components for common operations
-   - Interface-based design for testability and flexibility
-   - Clear separation of concerns between layers
+1. **Wire Dependency Injection**:
+   - `wire_gen.go` is auto-generated - never edit manually
+   - Run `go generate ./...` after changing dependencies
+   - Wire configuration in `cmd/pv/wire.go`
+
+2. **Sync Middleware**: All data-modifying commands use sync middleware for consistency
+
+3. **Error Handling**:
+   - All errors use `AppError` type
+   - Automatic categorization: Auth, Network, FileSystem, Parsing, Validation
+   - Use `NewError()` and `WrapError()` - never `fmt.Errorf()`
+
+4. **Index Structure**:
+   - `entries`: User's own prompts
+   - `imported_entries`: Prompts imported from other users
+   - Both use identical `IndexEntry` structure
+
+5. **Variable Handling**: Uses `{variable}` syntax with interactive replacement
+
+6. **Atomic Operations**: All file writes use atomic operations via PathManager
 
 ## Environment Variables
 
