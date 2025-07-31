@@ -24,7 +24,9 @@ func buildContainer() *container.Container {
 	manager := wire.ProvideConfigManager(pathManager)
 	authManager := wire.ProvideAuthManager(pathManager)
 	client := wire.ProvideGistClient(manager)
-	containerContainer := provideContainer(pathManager, cacheManager, manager, authManager, client)
+	syncManager := wire.ProvideSyncManager(cacheManager, authManager, client)
+	middleware := wire.ProvideSyncMiddleware(syncManager)
+	containerContainer := provideContainer(pathManager, cacheManager, manager, authManager, client, syncManager, middleware)
 	return containerContainer
 }
 
@@ -37,12 +39,16 @@ func provideContainer(
 	configManager *config.Manager,
 	authManager interfaces.AuthManager,
 	gistClient *gist.Client,
+	syncManager interfaces.SyncManager,
+	syncMiddleware interfaces.SyncMiddleware,
 ) *container.Container {
 	return &container.Container{
-		PathManager:   pathManager,
-		CacheManager:  cacheManager,
-		ConfigManager: configManager,
-		AuthManager:   authManager,
-		GistClient:    gistClient,
+		PathManager:    pathManager,
+		CacheManager:   cacheManager,
+		ConfigManager:  configManager,
+		AuthManager:    authManager,
+		GistClient:     gistClient,
+		SyncManager:    syncManager,
+		SyncMiddleware: syncMiddleware,
 	}
 }

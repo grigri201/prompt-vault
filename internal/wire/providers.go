@@ -1,12 +1,14 @@
 package wire
 
 import (
+	"github.com/google/wire"
 	"github.com/grigri201/prompt-vault/internal/auth"
 	"github.com/grigri201/prompt-vault/internal/cache"
 	"github.com/grigri201/prompt-vault/internal/config"
 	"github.com/grigri201/prompt-vault/internal/gist"
 	"github.com/grigri201/prompt-vault/internal/interfaces"
 	"github.com/grigri201/prompt-vault/internal/paths"
+	"github.com/grigri201/prompt-vault/internal/sync"
 )
 
 // ProvidePathManager provides a PathManager instance
@@ -37,17 +39,35 @@ func ProvideGistClient(configManager *config.Manager) *gist.Client {
 		// Return nil client if config doesn't exist
 		return nil
 	}
-	
+
 	if cfg.Token == "" {
 		// Return nil client if no token
 		return nil
 	}
-	
+
 	client, err := gist.NewClient(cfg.Token)
 	if err != nil {
 		// Return nil if client creation fails
 		return nil
 	}
-	
+
 	return client
 }
+
+// ProvideSyncManager provides a SyncManager instance
+func ProvideSyncManager(cacheManager interfaces.CacheManager, authManager interfaces.AuthManager, gistClient *gist.Client) *sync.Manager {
+	return sync.NewManager(cacheManager, authManager, gistClient)
+}
+
+// ProvideSyncMiddleware provides a SyncMiddleware instance
+func ProvideSyncMiddleware(syncManager *sync.Manager) *sync.Middleware {
+	return sync.NewSyncMiddleware(syncManager)
+}
+
+// Wire Sets for organizing Providers
+var SyncSet = wire.NewSet(
+	ProvideSyncManager,
+	ProvideSyncMiddleware,
+	wire.Bind(new(interfaces.SyncManager), new(*sync.Manager)),
+	wire.Bind(new(interfaces.SyncMiddleware), new(*sync.Middleware)),
+)

@@ -21,6 +21,7 @@ func buildContainer() *container.Container {
 		pvwire.ProvideConfigManager,
 		pvwire.ProvideAuthManager,
 		pvwire.ProvideGistClient,
+		pvwire.SyncSet,
 		provideContainer,
 	)
 	return nil
@@ -33,13 +34,17 @@ func provideContainer(
 	configManager *config.Manager,
 	authManager interfaces.AuthManager,
 	gistClient *gist.Client,
+	syncManager interfaces.SyncManager,
+	syncMiddleware interfaces.SyncMiddleware,
 ) *container.Container {
 	return &container.Container{
-		PathManager:   pathManager,
-		CacheManager:  cacheManager,
-		ConfigManager: configManager,
-		AuthManager:   authManager,
-		GistClient:    gistClient,
+		PathManager:    pathManager,
+		CacheManager:   cacheManager,
+		ConfigManager:  configManager,
+		AuthManager:    authManager,
+		GistClient:     gistClient,
+		SyncManager:    syncManager,
+		SyncMiddleware: syncMiddleware,
 		// initialized will be false by default
 	}
 }

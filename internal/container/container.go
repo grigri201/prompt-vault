@@ -2,48 +2,65 @@ package container
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/grigri201/prompt-vault/internal/auth"
 	"github.com/grigri201/prompt-vault/internal/cache"
 	"github.com/grigri201/prompt-vault/internal/config"
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
 	"github.com/grigri201/prompt-vault/internal/interfaces"
 	"github.com/grigri201/prompt-vault/internal/paths"
+	"github.com/grigri201/prompt-vault/internal/sync"
 )
 
 // Container holds all application dependencies
 type Container struct {
-	PathManager   *paths.PathManager
-	CacheManager  interfaces.CacheManager
-	ConfigManager *config.Manager // Keep concrete type to avoid circular dependency
-	AuthManager   interfaces.AuthManager
-	GistClient    *gist.Client
-	initialized   bool
+	PathManager    *paths.PathManager
+	CacheManager   interfaces.CacheManager
+	ConfigManager  *config.Manager // Keep concrete type to avoid circular dependency
+	AuthManager    interfaces.AuthManager
+	GistClient     *gist.Client
+	SyncManager    interfaces.SyncManager
+	SyncMiddleware interfaces.SyncMiddleware
+	initialized    bool
 }
 
 // NewContainer creates a new dependency container
 func NewContainer() *Container {
 	pathManager := paths.NewPathManager()
 
-	return &Container{
+	container := &Container{
 		PathManager:   pathManager,
 		CacheManager:  cache.NewManagerWithPathManager(pathManager),
 		ConfigManager: config.NewManagerWithPathManager(pathManager),
 		AuthManager:   auth.NewManagerWithPath(pathManager.GetConfigPath()),
 	}
+
+	// Initialize sync components (they will be properly initialized later)
+	syncManager := sync.NewManager(container.CacheManager, container.AuthManager, nil)
+	container.SyncManager = syncManager
+	container.SyncMiddleware = sync.NewSyncMiddleware(syncManager)
+
+	return container
 }
 
 // NewTestContainer creates a container for testing with custom home directory
 func NewTestContainer(homeDir string) *Container {
 	pathManager := paths.NewPathManagerWithHome(homeDir)
 
-	return &Container{
+	container := &Container{
 		PathManager:   pathManager,
 		CacheManager:  cache.NewManagerWithPathManager(pathManager),
 		ConfigManager: config.NewManagerWithPathManager(pathManager),
 		AuthManager:   auth.NewManagerWithPath(pathManager.GetConfigPath()),
 	}
+
+	// Initialize sync components (they will be properly initialized later)
+	syncManager := sync.NewManager(container.CacheManager, container.AuthManager, nil)
+	container.SyncManager = syncManager
+	container.SyncMiddleware = sync.NewSyncMiddleware(syncManager)
+
+	return container
 }
 
 // Initialize initializes all components in the container
@@ -54,11 +71,11 @@ func (c *Container) Initialize(ctx context.Context) error {
 
 	// Ensure directories exist
 	if err := c.PathManager.EnsureCacheDir(); err != nil {
-		return fmt.Errorf("failed to ensure cache directory: %w", err)
+		return errors.NewFileSystemError("Container.Initialize", err)
 	}
 
 	if err := c.PathManager.EnsureConfigDir(); err != nil {
-		return fmt.Errorf("failed to ensure config directory: %w", err)
+		return errors.NewFileSystemError("Container.Initialize", err)
 	}
 
 	// Initialize config manager
@@ -67,7 +84,7 @@ func (c *Container) Initialize(ctx context.Context) error {
 		// If config doesn't exist, create a default one
 		cfg = &config.Config{}
 		if err := c.ConfigManager.SaveConfig(cfg); err != nil {
-			return fmt.Errorf("failed to save default config: %w", err)
+			return errors.WrapError("Container.Initialize", err)
 		}
 	}
 
@@ -75,9 +92,14 @@ func (c *Container) Initialize(ctx context.Context) error {
 	if cfg.Token != "" {
 		client, err := gist.NewClient(cfg.Token)
 		if err != nil {
-			return fmt.Errorf("failed to create gist client: %w", err)
+			return errors.WrapError("Container.Initialize", err)
 		}
 		c.GistClient = client
+
+		// Update sync manager with gist client
+		syncManager := sync.NewManager(c.CacheManager, c.AuthManager, client)
+		c.SyncManager = syncManager
+		c.SyncMiddleware = sync.NewSyncMiddleware(syncManager)
 	}
 
 	c.initialized = true
@@ -93,9 +115,14 @@ func (c *Container) InitializeWithToken(ctx context.Context, token string) error
 	// Update the Gist client with the new token
 	client, err := gist.NewClient(token)
 	if err != nil {
-		return fmt.Errorf("failed to create gist client: %w", err)
+		return errors.WrapError("Container.InitializeWithToken", err)
 	}
 	c.GistClient = client
+
+	// Update sync manager with new gist client
+	syncManager := sync.NewManager(c.CacheManager, c.AuthManager, client)
+	c.SyncManager = syncManager
+	c.SyncMiddleware = sync.NewSyncMiddleware(syncManager)
 
 	// Save the token to config
 	cfg, err := c.ConfigManager.GetConfig()
@@ -105,7 +132,7 @@ func (c *Container) InitializeWithToken(ctx context.Context, token string) error
 	cfg.Token = token
 
 	if err := c.ConfigManager.SaveConfig(cfg); err != nil {
-		return fmt.Errorf("failed to save token to config: %w", err)
+		return errors.WrapError("Container.InitializeWithToken", err)
 	}
 
 	return nil
@@ -119,7 +146,7 @@ func (c *Container) IsInitialized() bool {
 // RequireGistClient returns the Gist client or an error if not available
 func (c *Container) RequireGistClient() (*gist.Client, error) {
 	if c.GistClient == nil {
-		return nil, fmt.Errorf("not authenticated. Please run 'pv login' first")
+		return nil, errors.NewAuthErrorMsg("Container.RequireGistClient", "not authenticated. Please run 'pv login' first")
 	}
 	return c.GistClient, nil
 }
