@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -96,13 +96,8 @@ func (m FormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		default:
-			// Add character to current field
-			// Handle both single-byte and multi-byte characters (including Chinese)
-			if msg.Type == tea.KeyRunes {
-				// This handles multi-byte characters properly
-				m.Fields[m.CurrentField].Value += string(msg.Runes)
-			} else if len(msg.String()) > 0 && !strings.HasPrefix(msg.String(), "ctrl+") && !strings.HasPrefix(msg.String(), "alt+") {
-				// Fallback for other key types
+			// Add character to current field - simplified for v2
+			if len(msg.String()) == 1 && !strings.HasPrefix(msg.String(), "ctrl+") && !strings.HasPrefix(msg.String(), "alt+") {
 				m.Fields[m.CurrentField].Value += msg.String()
 			}
 		}

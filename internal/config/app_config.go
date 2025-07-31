@@ -2,9 +2,10 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/grigri201/prompt-vault/internal/errors"
 )
 
 // AppConfig represents the application-wide configuration
@@ -35,12 +36,12 @@ func LoadAppConfigFromPath(path string) (*AppConfig, error) {
 			// Return empty config if file doesn't exist
 			return &AppConfig{}, nil
 		}
-		return nil, fmt.Errorf("failed to read app config: %w", err)
+		return nil, errors.NewFileSystemError("LoadAppConfigFromPath", err)
 	}
 
 	var config AppConfig
 	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal app config: %w", err)
+		return nil, errors.NewParsingError("LoadAppConfigFromPath", err)
 	}
 
 	return &config, nil
@@ -57,18 +58,18 @@ func SaveAppConfigToPath(config *AppConfig, path string) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+		return errors.NewFileSystemError("SaveAppConfigToPath", err)
 	}
 
 	// Marshal config to JSON
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal app config: %w", err)
+		return errors.NewParsingError("SaveAppConfigToPath", err)
 	}
 
 	// Write to file with secure permissions
 	if err := os.WriteFile(path, data, 0600); err != nil {
-		return fmt.Errorf("failed to write app config file: %w", err)
+		return errors.NewFileSystemError("SaveAppConfigToPath", err)
 	}
 
 	return nil

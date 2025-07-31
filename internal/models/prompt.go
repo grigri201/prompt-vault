@@ -10,14 +10,13 @@ import (
 
 // PromptMeta contains the metadata for a prompt template
 type PromptMeta struct {
-	Name        string   `yaml:"name" json:"name"`
-	Author      string   `yaml:"author" json:"author"`
-	Category    string   `yaml:"category" json:"category"`
-	Tags        []string `yaml:"tags" json:"tags"`
-	Version     string   `yaml:"version,omitempty" json:"version,omitempty"`
-	Description string   `yaml:"description,omitempty" json:"description,omitempty"`
-	Parent      string   `yaml:"parent,omitempty" json:"parent,omitempty"`
-	ID          string   `yaml:"id,omitempty" json:"id,omitempty"`
+	Name        string   `yaml:"name"`
+	Author      string   `yaml:"author"`
+	Tags        []string `yaml:"tags"`
+	Version     string   `yaml:"version,omitempty"`
+	Description string   `yaml:"description,omitempty"`
+	Parent      string   `yaml:"parent,omitempty"`
+	ID          string   `yaml:"id,omitempty"`
 }
 
 // ValidateID checks if the ID contains only valid characters
@@ -51,9 +50,6 @@ func (m *PromptMeta) Validate() error {
 	}
 	if m.Author == "" {
 		return errors.NewValidationErrorMsg("PromptMeta.Validate", "author is required")
-	}
-	if m.Category == "" {
-		return errors.NewValidationErrorMsg("PromptMeta.Validate", "category is required")
 	}
 	if len(m.Tags) == 0 {
 		return errors.NewValidationErrorMsg("PromptMeta.Validate", "at least one tag is required")
@@ -90,10 +86,10 @@ func (p *Prompt) ToIndexEntry() IndexEntry {
 		GistURL:     p.GistURL,
 		Name:        p.Name,
 		Author:      p.Author,
-		Category:    p.Category,
 		Tags:        p.Tags,
 		Version:     p.Version,
 		Description: p.Description,
+		Parent:      p.Parent,
 		ID:          p.ID,
 		UpdatedAt:   p.UpdatedAt,
 	}
@@ -105,10 +101,10 @@ type IndexEntry struct {
 	GistURL     string    `json:"gist_url"`
 	Name        string    `json:"name"`
 	Author      string    `json:"author"`
-	Category    string    `json:"category"`
 	Tags        []string  `json:"tags"`
-	Version     string    `json:"version"`
-	Description string    `json:"description"`
+	Version     string    `json:"version,omitempty"`
+	Description string    `json:"description,omitempty"`
+	Parent      string    `json:"parent,omitempty"`
 	ID          string    `json:"id,omitempty"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

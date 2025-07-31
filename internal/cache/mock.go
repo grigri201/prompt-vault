@@ -77,10 +77,9 @@ func (m *MockManager) GetPrompt(gistID string) (*models.Prompt, error) {
 	return &models.Prompt{
 		GistID: gistID,
 		PromptMeta: models.PromptMeta{
-			Name:     "Mock Prompt",
-			Author:   "Mock Author",
-			Category: "Mock Category",
-			Tags:     []string{"mock"},
+			Name:   "Mock Prompt",
+			Author: "Mock Author",
+			Tags:   []string{"mock"},
 		},
 	}, nil
 }

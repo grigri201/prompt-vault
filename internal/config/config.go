@@ -2,12 +2,12 @@ package config
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/managers"
 	"github.com/grigri201/prompt-vault/internal/paths"
 	"gopkg.in/yaml.v3"
@@ -23,10 +23,10 @@ type Config struct {
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
 	if c.Token == "" {
-		return fmt.Errorf("token is required")
+		return errors.NewValidationErrorMsg("Config.Validate", "token is required")
 	}
 	if c.Username == "" {
-		return fmt.Errorf("username is required")
+		return errors.NewValidationErrorMsg("Config.Validate", "username is required")
 	}
 	return nil
 }
@@ -36,18 +36,18 @@ func (c *Config) SaveToFile(path string) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+		return errors.NewFileSystemError("Config.SaveToFile", err)
 	}
 
 	// Marshal config to YAML
 	data, err := yaml.Marshal(c)
 	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
+		return errors.NewParsingError("Config.SaveToFile", err)
 	}
 
 	// Write to file with secure permissions
 	if err := os.WriteFile(path, data, 0600); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+		return errors.NewFileSystemError("Config.SaveToFile", err)
 	}
 
 	return nil
@@ -58,12 +58,12 @@ func (c *Config) SaveToFileAtomic(pm *paths.PathManager, path string) error {
 	// Marshal config to YAML
 	data, err := yaml.Marshal(c)
 	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
+		return errors.NewParsingError("Config.SaveToFileAtomic", err)
 	}
 
 	// Write to file atomically with secure permissions
 	if err := pm.AtomicWrite(path, data, 0600); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+		return errors.NewFileSystemError("Config.SaveToFileAtomic", err)
 	}
 
 	return nil
@@ -78,7 +78,7 @@ func (c *Config) LoadFromFile(path string) error {
 	}
 
 	if err := yaml.Unmarshal(data, c); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %w", err)
+		return errors.NewParsingError("Config.LoadFromFile", err)
 	}
 
 	return nil
@@ -151,7 +151,7 @@ func (m *Manager) Initialize(ctx context.Context) error {
 	defer m.mu.Unlock()
 
 	if err := m.pathManager.EnsureConfigDir(); err != nil {
-		return fmt.Errorf("failed to initialize config: %w", err)
+		return errors.WrapError("Manager.Initialize", err)
 	}
 
 	m.SetInitialized(true)

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/grigri201/prompt-vault/internal/errors"
 )
 
 // GenerateSlug creates a URL-friendly identifier from name and author
@@ -37,21 +39,21 @@ func GenerateSlug(name, author string) string {
 // ValidateID checks if an ID contains only valid characters
 func ValidateID(id string) error {
 	if id == "" {
-		return fmt.Errorf("ID cannot be empty")
+		return errors.NewValidationErrorMsg("ValidateID", "ID cannot be empty")
 	}
 
 	// ID can only contain alphanumeric characters, hyphens, and underscores
 	validID := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 	if !validID.MatchString(id) {
-		return fmt.Errorf("ID can only contain letters, numbers, hyphens, and underscores")
+		return errors.NewValidationErrorMsg("ValidateID", "ID can only contain letters, numbers, hyphens, and underscores")
 	}
 
 	// Check minimum and maximum length
 	if len(id) < 3 {
-		return fmt.Errorf("ID must be at least 3 characters long")
+		return errors.NewValidationErrorMsg("ValidateID", "ID must be at least 3 characters long")
 	}
 	if len(id) > 100 {
-		return fmt.Errorf("ID must not exceed 100 characters")
+		return errors.NewValidationErrorMsg("ValidateID", "ID must not exceed 100 characters")
 	}
 
 	return nil

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v73/github"
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/models"
 	"gopkg.in/yaml.v3"
 )
@@ -50,24 +51,24 @@ func (m *Manager) ImportPrompt(ctx context.Context, gistURL string, index *model
 	// Extract gist ID from URL
 	gistID, err := m.extractGistID(gistURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract gist ID: %w", err)
+		return nil, errors.WrapError("Manager.ImportPrompt", err)
 	}
 
 	// Get the gist
 	gist, err := m.gistClient.GetGistByURL(ctx, gistURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gist: %w", err)
+		return nil, errors.WrapError("Manager.ImportPrompt", err)
 	}
 
 	// Check if it's a public gist
 	if gist.Public != nil && !*gist.Public {
-		return nil, fmt.Errorf("cannot import private gist")
+		return nil, errors.NewValidationErrorMsg("Manager.ImportPrompt", "cannot import private gist")
 	}
 
 	// Validate the gist contains a valid prompt
 	prompt, err := m.validatePromptGist(gist)
 	if err != nil {
-		return nil, fmt.Errorf("not a valid prompt gist: %w", err)
+		return nil, errors.WrapError("Manager.ImportPrompt", err)
 	}
 
 	// Create index entry for the prompt
@@ -75,10 +76,10 @@ func (m *Manager) ImportPrompt(ctx context.Context, gistURL string, index *model
 		GistID:      gistID,
 		Name:        prompt.Name,
 		Author:      prompt.Author,
-		Category:    prompt.Category,
 		Tags:        prompt.Tags,
 		Version:     prompt.Version,
 		Description: prompt.Description,
+		Parent:      prompt.Parent,
 	}
 
 	// Check if already imported
@@ -98,11 +99,11 @@ func (m *Manager) ImportPrompt(ctx context.Context, gistURL string, index *model
 		// Different versions, ask user to confirm update
 		confirmed, err := m.confirmVersionUpdate(existingEntry, &newEntry)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get user confirmation: %w", err)
+			return nil, errors.WrapError("Manager.ImportPrompt", err)
 		}
 
 		if !confirmed {
-			return nil, fmt.Errorf("update cancelled by user")
+			return nil, errors.NewValidationErrorMsg("Manager.ImportPrompt", "update cancelled by user")
 		}
 
 		// Update the existing entry
@@ -128,15 +129,15 @@ func (m *Manager) extractGistID(gistURL string) (string, error) {
 	// Parse the URL
 	u, err := url.Parse(gistURL)
 	if err != nil {
-		return "", fmt.Errorf("invalid URL: %w", err)
+		return "", errors.NewValidationError("Manager.extractGistID", err)
 	}
 
 	// Check if it's a GitHub gist URL
 	if u.Host != "gist.github.com" {
 		if u.Host == "" {
-			return "", fmt.Errorf("invalid URL: %w", err)
+			return "", errors.NewValidationErrorMsg("Manager.extractGistID", "invalid URL")
 		}
-		return "", fmt.Errorf("not a GitHub gist URL")
+		return "", errors.NewValidationErrorMsg("Manager.extractGistID", "not a GitHub gist URL")
 	}
 
 	// Extract path components
@@ -145,7 +146,7 @@ func (m *Manager) extractGistID(gistURL string) (string, error) {
 	parts := strings.Split(path, "/")
 
 	if len(parts) < 2 {
-		return "", fmt.Errorf("invalid gist URL format")
+		return "", errors.NewValidationErrorMsg("Manager.extractGistID", "invalid gist URL format")
 	}
 
 	// The gist ID is the second part
@@ -153,7 +154,7 @@ func (m *Manager) extractGistID(gistURL string) (string, error) {
 
 	// Validate gist ID (should be alphanumeric)
 	if gistID == "" || !isValidGistID(gistID) {
-		return "", fmt.Errorf("invalid gist ID")
+		return "", errors.NewValidationErrorMsg("Manager.extractGistID", "invalid gist ID")
 	}
 
 	return gistID, nil
@@ -163,7 +164,7 @@ func (m *Manager) extractGistID(gistURL string) (string, error) {
 func (m *Manager) validatePromptGist(gist *github.Gist) (*models.Prompt, error) {
 	// Check if gist has files
 	if len(gist.Files) == 0 {
-		return nil, fmt.Errorf("gist has no files")
+		return nil, errors.NewValidationErrorMsg("Manager.validatePromptGist", "gist has no files")
 	}
 
 	// Get the first file content
@@ -176,18 +177,18 @@ func (m *Manager) validatePromptGist(gist *github.Gist) (*models.Prompt, error) 
 	}
 
 	if content == "" {
-		return nil, fmt.Errorf("no content found in gist")
+		return nil, errors.NewValidationErrorMsg("Manager.validatePromptGist", "no content found in gist")
 	}
 
 	// Parse YAML front matter
 	meta, promptContent, err := parseYAMLFrontMatter(content)
 	if err != nil {
-		return nil, fmt.Errorf("not a valid prompt gist: %w", err)
+		return nil, errors.WrapError("Manager.validatePromptGist", err)
 	}
 
 	// Validate required fields
 	if err := meta.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid prompt metadata: %w", err)
+		return nil, errors.WrapError("Manager.validatePromptGist", err)
 	}
 
 	// Create prompt
@@ -224,7 +225,7 @@ func (m *Manager) checkExistingImport(index *models.Index, gistID string) (*mode
 // confirmVersionUpdate asks user to confirm version update
 func (m *Manager) confirmVersionUpdate(oldEntry, newEntry *models.IndexEntry) (bool, error) {
 	if m.ui == nil {
-		return false, fmt.Errorf("UI not configured")
+		return false, errors.NewValidationErrorMsg("Manager.confirmVersionUpdate", "UI not configured")
 	}
 
 	message := fmt.Sprintf(
@@ -241,7 +242,7 @@ func (m *Manager) confirmVersionUpdate(oldEntry, newEntry *models.IndexEntry) (b
 func parseYAMLFrontMatter(content string) (*models.PromptMeta, string, error) {
 	// Check if content starts with front matter delimiter
 	if !strings.HasPrefix(content, "---\n") && !strings.HasPrefix(content, "---\r\n") {
-		return nil, "", fmt.Errorf("missing YAML front matter")
+		return nil, "", errors.NewParsingErrorMsg("parseYAMLFrontMatter", "missing YAML front matter")
 	}
 
 	// Find the closing delimiter
@@ -252,7 +253,7 @@ func parseYAMLFrontMatter(content string) (*models.PromptMeta, string, error) {
 	if endIndex == -1 {
 		endIndex = strings.Index(content, "\r\n---")
 		if endIndex == -1 {
-			return nil, "", fmt.Errorf("unclosed YAML front matter")
+			return nil, "", errors.NewParsingErrorMsg("parseYAMLFrontMatter", "unclosed YAML front matter")
 		}
 	}
 
@@ -265,7 +266,7 @@ func parseYAMLFrontMatter(content string) (*models.PromptMeta, string, error) {
 	// Parse YAML
 	var meta models.PromptMeta
 	if err := yaml.Unmarshal([]byte(frontMatter), &meta); err != nil {
-		return nil, "", fmt.Errorf("failed to parse YAML: %w", err)
+		return nil, "", errors.NewParsingError("parseYAMLFrontMatter", err)
 	}
 
 	return &meta, strings.TrimSpace(promptContent), nil

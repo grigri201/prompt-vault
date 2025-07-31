@@ -179,7 +179,6 @@ func (m *Manager) SavePrompt(prompt *models.Prompt) error {
 	meta := map[string]interface{}{
 		"name":        prompt.Name,
 		"author":      prompt.Author,
-		"category":    prompt.Category,
 		"tags":        prompt.Tags,
 		"version":     prompt.Version,
 		"description": prompt.Description,

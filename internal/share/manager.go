@@ -215,7 +215,7 @@ func (m *Manager) createPublicGist(ctx context.Context, prompt *models.Prompt) (
 	// Use description from prompt or create a default one
 	description := meta.Description
 	if description == "" {
-		description = fmt.Sprintf("%s - %s", meta.Name, meta.Category)
+		description = meta.Name
 	}
 
 	// Create the public gist
@@ -235,10 +235,9 @@ func (m *Manager) createPublicGist(ctx context.Context, prompt *models.Prompt) (
 func formatPromptWithParent(meta *models.PromptMeta, content string) string {
 	// Create metadata map with all fields including parent
 	metaMap := map[string]interface{}{
-		"name":     meta.Name,
-		"author":   meta.Author,
-		"category": meta.Category,
-		"tags":     meta.Tags,
+		"name":   meta.Name,
+		"author": meta.Author,
+		"tags":   meta.Tags,
 	}
 
 	// Add optional fields
@@ -260,7 +259,6 @@ func formatPromptWithParent(meta *models.PromptMeta, content string) string {
 			"---",
 			fmt.Sprintf("name: %s", meta.Name),
 			fmt.Sprintf("author: %s", meta.Author),
-			fmt.Sprintf("category: %s", meta.Category),
 			fmt.Sprintf("tags: %v", meta.Tags),
 		}
 		if meta.Version != "" {
@@ -294,7 +292,7 @@ func (m *Manager) updatePublicGist(ctx context.Context, gistID string, prompt *m
 	// Use description from prompt or create a default one
 	description := meta.Description
 	if description == "" {
-		description = fmt.Sprintf("%s - %s", meta.Name, meta.Category)
+		description = meta.Name
 	}
 
 	// Update the public gist

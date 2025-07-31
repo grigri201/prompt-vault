@@ -26,6 +26,9 @@ type CacheWriter interface {
 	// SaveIndex saves the index to the cache
 	SaveIndex(index *models.Index) error
 
+	// DeletePrompt removes a prompt from the cache
+	DeletePrompt(name string) error
+
 	// ClearCache removes all cached files
 	ClearCache() error
 }

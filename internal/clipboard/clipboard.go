@@ -5,12 +5,14 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"github.com/grigri201/prompt-vault/internal/errors"
 )
 
 // Copy copies the given text to the system clipboard
 func Copy(text string) error {
 	if text == "" {
-		return fmt.Errorf("cannot copy empty text to clipboard")
+		return errors.NewValidationErrorMsg("Copy", "cannot copy empty text to clipboard")
 	}
 
 	switch runtime.GOOS {
@@ -21,7 +23,7 @@ func Copy(text string) error {
 	case "windows":
 		return copyWindows(text)
 	default:
-		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+		return errors.NewValidationErrorMsg("Copy", fmt.Sprintf("unsupported platform: %s", runtime.GOOS))
 	}
 }
 
@@ -31,7 +33,7 @@ func copyDarwin(text string) error {
 	cmd.Stdin = strings.NewReader(text)
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to copy to clipboard on macOS: %w", err)
+		return errors.NewFileSystemError("copyDarwin", err)
 	}
 
 	return nil
@@ -45,7 +47,7 @@ func copyLinux(text string) error {
 		cmd.Stdin = strings.NewReader(text)
 
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to copy to clipboard with xclip: %w", err)
+			return errors.NewFileSystemError("copyLinux", err)
 		}
 
 		return nil
@@ -57,7 +59,7 @@ func copyLinux(text string) error {
 		cmd.Stdin = strings.NewReader(text)
 
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to copy to clipboard with xsel: %w", err)
+			return errors.NewFileSystemError("copyLinux", err)
 		}
 
 		return nil
@@ -69,13 +71,13 @@ func copyLinux(text string) error {
 		cmd.Stdin = strings.NewReader(text)
 
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to copy to clipboard with wl-copy: %w", err)
+			return errors.NewFileSystemError("copyLinux", err)
 		}
 
 		return nil
 	}
 
-	return fmt.Errorf("no clipboard utility found (xclip, xsel, or wl-copy required)")
+	return errors.NewValidationErrorMsg("copyLinux", "no clipboard utility found (xclip, xsel, or wl-copy required)")
 }
 
 // copyWindows copies text to clipboard on Windows
@@ -89,7 +91,7 @@ func copyWindows(text string) error {
 		clipCmd.Stdin = strings.NewReader(text)
 
 		if err := clipCmd.Run(); err != nil {
-			return fmt.Errorf("failed to copy to clipboard on Windows: %w", err)
+			return errors.NewFileSystemError("copyWindows", err)
 		}
 	}
 

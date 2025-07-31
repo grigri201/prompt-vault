@@ -58,11 +58,6 @@ func (s *Searcher) MatchesKeyword(entry models.IndexEntry, keyword string) bool 
 		return true
 	}
 
-	// Search in category
-	if strings.Contains(strings.ToLower(entry.Category), keyword) {
-		return true
-	}
-
 	// Search in description
 	if strings.Contains(strings.ToLower(entry.Description), keyword) {
 		return true
