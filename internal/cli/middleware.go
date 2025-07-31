@@ -1,58 +1,93 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/grigri201/prompt-vault/internal/config"
+	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/spf13/cobra"
 )
 
-// AutoSyncCommands are commands that should trigger auto-sync after execution
-var AutoSyncCommands = map[string]bool{
-	"upload": true,
-	"delete": true,
-	"import": true,
-}
-
-// WrapWithAutoSync wraps a command to perform sync after execution
-func WrapWithAutoSync(cmd *cobra.Command) {
+// WithSyncMiddleware wraps a command with the new sync middleware system
+func WithSyncMiddleware(cmd *cobra.Command, cmdName string) *cobra.Command {
 	originalRunE := cmd.RunE
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		// Run the original command
+		// Get command context
+		cmdContext := GetCommandContext()
+		if cmdContext == nil {
+			return errors.NewValidationErrorMsg("WithSyncMiddleware", "command context not initialized")
+		}
+
+		container := cmdContext.Container
+
+		// Initialize container if needed
+		if !container.IsInitialized() {
+			if err := container.Initialize(cmd.Context()); err != nil {
+				return errors.WrapWithMessage(err, "failed to initialize container")
+			}
+		}
+
+		syncMiddleware := container.SyncMiddleware
+		ctx := context.Background()
+
+		// Pre-sync: Execute before the main command
+		if err := syncMiddleware.PreSync(ctx, cmdName); err != nil {
+			// Pre-sync failure should be reported but not block the command
+			fmt.Fprintf(cmd.OutOrStderr(), "Warning: Pre-sync failed: %v\n", err)
+		}
+
+		// Execute the original command
 		err := originalRunE(cmd, args)
 
-		// Check if this command should trigger auto-sync
-		if AutoSyncCommands[cmd.Name()] && err == nil {
-			// Get auto-sync setting from config
-			configManager := config.NewManager()
-			cfg, configErr := configManager.GetConfig()
-			if configErr == nil && cfg != nil {
-				// Check if auto-sync is enabled (we can add this to config later)
-				// For now, always sync after these commands
-				if shouldAutoSync(cfg) {
-					fmt.Fprintln(cmd.OutOrStderr(), "\nSyncing with GitHub...")
-					syncErr := performFullSync(cmd)
-					if syncErr != nil {
-						fmt.Fprintf(cmd.OutOrStderr(), "Warning: Auto-sync failed: %v\n", syncErr)
-					}
+		// Post-sync: Execute after the main command (even if it failed)
+		if syncErr := syncMiddleware.PostSync(ctx, cmdName); syncErr != nil {
+			if err != nil {
+				// If the original command also failed, report sync error but return original error
+				fmt.Fprintf(cmd.OutOrStderr(), "Warning: Post-sync failed: %v\n", syncErr)
+			} else {
+				fmt.Println("syncErr:", syncErr)
+				// Check if this is the "no prompts found" error for new users
+				if isNoPromptsFoundError(syncErr) {
+					// Show this as a helpful suggestion, not an error
+					fmt.Fprintf(cmd.OutOrStdout(), "💡 Suggestion: %s\n", extractErrorMessage(syncErr))
+				} else {
+					// If the original command succeeded but post-sync failed, return sync error
+					err = errors.WrapError("middleware.PostSync", syncErr)
 				}
 			}
 		}
 
 		return err
 	}
+
+	return cmd
 }
 
-// shouldAutoSync checks if auto-sync is enabled
-func shouldAutoSync(cfg *config.Config) bool {
-	// TODO: Add auto_sync field to config
-	// For now, always return true
-	return true
+// isNoPromptsFoundError checks if the error is the "no prompts found" validation error
+func isNoPromptsFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return contains(errStr, "no prompts found") && contains(errStr, "pv add")
 }
 
-// performAutoSync is deprecated - use performFullSync from sync_utils.go
-// This function is kept for backward compatibility but should not be used
-func performAutoSync(cmd *cobra.Command) error {
-	return performFullSync(cmd)
+// extractErrorMessage extracts the user-friendly message from an error
+func extractErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	errStr := err.Error()
+
+	// Look for the pattern "ValidationError: <component>: <message>"
+	if idx := findSubstring(errStr, ": "); idx >= 0 {
+		remaining := errStr[idx+2:]
+		if nextIdx := findSubstring(remaining, ": "); nextIdx >= 0 {
+			return remaining[nextIdx+2:]
+		}
+		return remaining
+	}
+
+	return errStr
 }

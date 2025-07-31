@@ -13,9 +13,9 @@ import (
 	"github.com/grigri201/prompt-vault/internal/interfaces"
 )
 
-// newLoginCmd creates the login command
-func newLoginCmd() *cobra.Command {
-	return &cobra.Command{
+// NewLoginCommand creates the login command
+func NewLoginCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Authenticate with GitHub using a Personal Access Token",
 		Long: `Authenticate with GitHub using a Personal Access Token (PAT).
@@ -30,6 +30,9 @@ To create a Personal Access Token:
 6. Copy the token and use it with this command`,
 		RunE: runLogin,
 	}
+
+	// Integrate sync middleware
+	return WithSyncMiddleware(cmd, "login")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
@@ -62,9 +65,10 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return errors.NewValidationErrorMsg("login", "token cannot be empty")
 	}
 
-	// Get auth manager from container
+	// Get managers from container
 	cmdCtx := GetCommandContext()
 	authManager := cmdCtx.Container.AuthManager
+	cacheManager := cmdCtx.Container.CacheManager
 
 	// Validate token with GitHub API
 	fmt.Fprintln(cmd.OutOrStdout(), "\nValidating token...")
@@ -73,6 +77,18 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	username, err := validateAndSaveToken(ctx, authManager, token)
 	if err != nil {
 		return errors.WrapWithMessage(err, "failed to validate token")
+	}
+
+	// Clear cache after successful authentication to ensure clean sync
+	fmt.Fprintln(cmd.OutOrStdout(), "Clearing cache for fresh sync...")
+	if err := cacheManager.ClearCache(); err != nil {
+		// Don't fail login if cache clear fails, just warn
+		fmt.Fprintf(cmd.OutOrStderr(), "Warning: Failed to clear cache: %v\n", err)
+	}
+
+	// Reinitialize container with the new token to update gist client and sync manager
+	if err := cmdCtx.Container.InitializeWithToken(ctx, token); err != nil {
+		return errors.WrapWithMessage(err, "failed to reinitialize container with token")
 	}
 
 	// Success message

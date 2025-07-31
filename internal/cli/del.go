@@ -6,34 +6,35 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/grigri201/prompt-vault/internal/auth"
-	"github.com/grigri201/prompt-vault/internal/cache"
 	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
+	"github.com/grigri201/prompt-vault/internal/interfaces"
 	"github.com/grigri201/prompt-vault/internal/models"
 	"github.com/grigri201/prompt-vault/internal/search"
 	"github.com/grigri201/prompt-vault/internal/ui"
 )
 
-// newDeleteCmd creates the delete command
-func newDeleteCmd() *cobra.Command {
+// NewDelCommand creates the del command
+func NewDelCommand() *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
-		Use:     "delete [<name>|<keyword>|<gist-url>]",
-		Aliases: []string{"del", "rm"},
+		Use:     "del [<name>|<keyword>|<gist-url>]",
+		Aliases: []string{"delete", "rm"},
 		Short:   "Delete a prompt template",
 		Long: `Delete a prompt template from your GitHub Gists.
 This action requires confirmation and can only be performed on your own templates.
 
 Usage:
-  pv delete                     # List all prompts and select one to delete
-  pv delete <keyword>           # Search for prompts matching keyword and select one to delete
-  pv delete <gist-url>          # Delete a specific prompt by its gist URL
-  pv delete <gist-id>           # Delete a specific prompt by its gist ID`,
+  pv del                        # List all prompts and select one to delete
+  pv del <keyword>              # Search for prompts matching keyword and select one to delete
+  pv del <gist-url>             # Delete a specific prompt by its gist URL
+  pv del <gist-id>              # Delete a specific prompt by its gist ID
+  pv del <keyword> --force      # Skip confirmation prompt`,
 		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -45,10 +46,8 @@ Usage:
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
 
-	// Apply auto-sync middleware
-	WrapWithAutoSync(cmd)
-
-	return cmd
+	// Integrate sync middleware
+	return WithSyncMiddleware(cmd, "del")
 }
 
 // extractGistIDFromURL extracts the gist ID from a GitHub gist URL
@@ -108,7 +107,6 @@ func runDeleteWithSelection(cmd *cobra.Command, input string, force bool) error 
 		selectorItems := make([]string, len(index.Entries))
 		for i, entry := range index.Entries {
 			fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
-			fmt.Fprintf(cmd.OutOrStdout(), "    Category: %s\n", entry.Category)
 			if len(entry.Tags) > 0 {
 				fmt.Fprintf(cmd.OutOrStdout(), "    Tags: %s\n", strings.Join(entry.Tags, ", "))
 			}
@@ -175,7 +173,6 @@ func runDeleteWithSelection(cmd *cobra.Command, input string, force bool) error 
 			for i, idx := range matches {
 				entry := index.Entries[idx]
 				fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
-				fmt.Fprintf(cmd.OutOrStdout(), "    Category: %s\n", entry.Category)
 				if len(entry.Tags) > 0 {
 					fmt.Fprintf(cmd.OutOrStdout(), "    Tags: %s\n", strings.Join(entry.Tags, ", "))
 				}
@@ -212,7 +209,7 @@ func runDeleteWithSelection(cmd *cobra.Command, input string, force bool) error 
 	return runDeleteSimple(cmd, targetEntry, entryIndex, index, cacheManager, force)
 }
 
-func runDeleteSimple(cmd *cobra.Command, targetEntry *models.IndexEntry, entryIndex int, index *models.Index, cacheManager *cache.Manager, force bool) error {
+func runDeleteSimple(cmd *cobra.Command, targetEntry *models.IndexEntry, entryIndex int, index *models.Index, cacheManager interfaces.CacheManager, force bool) error {
 	// Confirm deletion unless force flag is set
 	if !force {
 		fmt.Fprintf(cmd.OutOrStdout(), "Are you sure you want to delete '%s'? (y/N): ", targetEntry.Name)

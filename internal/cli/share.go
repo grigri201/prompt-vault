@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/grigri201/prompt-vault/internal/auth"
 	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
@@ -40,7 +40,7 @@ type shareOptions struct {
 	gistID string
 }
 
-func newShareCommand() *cobra.Command {
+func NewShareCommand() *cobra.Command {
 	opts := &shareOptions{}
 
 	cmd := &cobra.Command{
@@ -64,7 +64,8 @@ If a public version already exists, you'll be prompted to update it.`,
 		},
 	}
 
-	return cmd
+	// Integrate sync middleware
+	return WithSyncMiddleware(cmd, "share")
 }
 
 // newShareCmd creates a share command with injected dependencies (for testing)
@@ -185,7 +186,6 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 		// Show details for each prompt
 		for i, entry := range index.Entries {
 			fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
-			fmt.Fprintf(cmd.OutOrStdout(), "   Category: %s\n", entry.Category)
 			if len(entry.Tags) > 0 {
 				fmt.Fprintf(cmd.OutOrStdout(), "   Tags: %s\n", formatTags(entry.Tags))
 			}
@@ -256,7 +256,6 @@ func runShareWithManager(cmd *cobra.Command, opts *shareOptions, manager shareMa
 			for i, matchIdx := range matches {
 				entry := index.Entries[matchIdx]
 				fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
-				fmt.Fprintf(cmd.OutOrStdout(), "   Category: %s\n", entry.Category)
 				if len(entry.Tags) > 0 {
 					fmt.Fprintf(cmd.OutOrStdout(), "   Tags: %s\n", formatTags(entry.Tags))
 				}

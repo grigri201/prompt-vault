@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newConfigCmd creates the config command
-func newConfigCmd() *cobra.Command {
+// NewConfigCommand creates the config command
+func NewConfigCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Display configuration information",

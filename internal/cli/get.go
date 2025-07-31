@@ -2,9 +2,10 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/grigri201/prompt-vault/internal/clipboard"
@@ -14,20 +15,34 @@ import (
 	"github.com/grigri201/prompt-vault/internal/ui"
 )
 
-// newGetCmd creates the get command
-func newGetCmd() *cobra.Command {
-	return &cobra.Command{
+// NewGetCommand creates the get command
+func NewGetCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "get [keyword]",
 		Short: "Search and retrieve prompt templates",
 		Long: `Search for prompt templates by keyword across names, categories, 
 tags, authors, and descriptions. Select a template to fill in variables 
-interactively and copy the result to your clipboard.`,
+interactively and copy the result to your clipboard.
+
+Examples:
+  pv get "code review"                    # Search and display
+  pv get "deployment" --output deploy.md  # Output to file`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runGet,
 	}
+
+	cmd.Flags().StringP("output", "o", "", "Output to file instead of clipboard")
+
+	// Integrate sync middleware
+	return WithSyncMiddleware(cmd, "get")
 }
 
 func runGet(cmd *cobra.Command, args []string) error {
+	// Get output file flag
+	outputFile, err := cmd.Flags().GetString("output")
+	if err != nil {
+		return err
+	}
 	// Create cache manager
 	cachePath := getCachePathFunc()
 	_, cacheManager := createManagersWithPath(cachePath)
@@ -69,7 +84,6 @@ func runGet(cmd *cobra.Command, args []string) error {
 	for i, idx := range matches {
 		entry := index.Entries[idx]
 		fmt.Fprintf(cmd.OutOrStdout(), "[%d] %s by %s\n", i+1, entry.Name, entry.Author)
-		fmt.Fprintf(cmd.OutOrStdout(), "    Category: %s\n", entry.Category)
 		if len(entry.Tags) > 0 {
 			fmt.Fprintf(cmd.OutOrStdout(), "    Tags: %s\n", strings.Join(entry.Tags, ", "))
 		}
@@ -151,16 +165,29 @@ func runGet(cmd *cobra.Command, args []string) error {
 		finalContent = prompt.Content
 	}
 
-	// Copy to clipboard
-	err = clipboard.Copy(finalContent)
-	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "\nWarning: Failed to copy to clipboard: %v\n", err)
-		fmt.Fprintln(cmd.OutOrStdout(), "\nPrompt content:")
-		fmt.Fprintln(cmd.OutOrStdout(), finalContent)
-	} else {
-		fmt.Fprintln(cmd.OutOrStdout(), "\n✓ Prompt copied to clipboard!")
+	// Handle output based on flag
+	if outputFile != "" {
+		// Write to file
+		err = os.WriteFile(outputFile, []byte(finalContent), 0644)
+		if err != nil {
+			return errors.WrapWithMessage(err, fmt.Sprintf("failed to write to file %s", outputFile))
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "\n✓ Prompt written to file: %s\n", outputFile)
 		if selectedEntry.GistURL != "" {
 			fmt.Fprintf(cmd.OutOrStdout(), "Gist URL: %s\n", selectedEntry.GistURL)
+		}
+	} else {
+		// Copy to clipboard
+		err = clipboard.Copy(finalContent)
+		if err != nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "\nWarning: Failed to copy to clipboard: %v\n", err)
+			fmt.Fprintln(cmd.OutOrStdout(), "\nPrompt content:")
+			fmt.Fprintln(cmd.OutOrStdout(), finalContent)
+		} else {
+			fmt.Fprintln(cmd.OutOrStdout(), "\n✓ Prompt copied to clipboard!")
+			if selectedEntry.GistURL != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Gist URL: %s\n", selectedEntry.GistURL)
+			}
 		}
 	}
 

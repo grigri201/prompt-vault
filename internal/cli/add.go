@@ -13,61 +13,93 @@ import (
 	"github.com/grigri201/prompt-vault/internal/auth"
 	"github.com/grigri201/prompt-vault/internal/errors"
 	"github.com/grigri201/prompt-vault/internal/gist"
+	"github.com/grigri201/prompt-vault/internal/imports"
 	"github.com/grigri201/prompt-vault/internal/models"
 	"github.com/grigri201/prompt-vault/internal/parser"
 	"github.com/grigri201/prompt-vault/internal/upload"
 )
 
-// newUploadCmd creates the upload command
-func newUploadCmd() *cobra.Command {
-	var force bool
+type InputType int
 
-	cmd := &cobra.Command{
-		Use:     "upload [file]",
-		Aliases: []string{"up"},
-		Short:   "Upload a prompt template to GitHub Gist",
-		Long: `Upload a prompt template file to GitHub Gist.
-The file should be in YAML format with front matter containing metadata.
+const (
+	InputTypeFile InputType = iota
+	InputTypeGistURL
+)
 
-Example file format:
----
-name: API Documentation Generator
-author: yourname
-category: documentation
-tags: [api, docs, swagger]
-description: Generate API documentation from OpenAPI specs
----
-Generate {format} documentation for the following API:
-{api_spec}`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpload(cmd, args, force)
-		},
-	}
-
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "Automatically overwrite existing prompts without confirmation")
-
-	// Apply auto-sync middleware
-	WrapWithAutoSync(cmd)
-
-	return cmd
+type AddCommand struct {
+	Force bool
+	Input string
 }
 
-func runUpload(cmd *cobra.Command, args []string, force bool) error {
-	filename := args[0]
+func NewAddCommand() *cobra.Command {
+	var cmd = &cobra.Command{
+		Use:   "add [file|gist-url]",
+		Short: "Add a prompt template from file or import from Gist URL",
+		Long: `Add a prompt template to your vault. Supports two input types:
+
+1. Local file: Upload a YAML file with prompt template
+2. Gist URL: Import a prompt from GitHub Gist URL
+
+Examples:
+  pv add prompt.yaml                    # Upload local file
+  pv add https://gist.github.com/...    # Import from Gist URL
+  pv add prompt.yaml --force            # Force overwrite duplicates`,
+		Args: cobra.ExactArgs(1),
+		RunE: runAddCommand,
+	}
+
+	cmd.Flags().BoolP("force", "f", false, "Force overwrite duplicate prompts")
+
+	// Integrate sync middleware
+	return WithSyncMiddleware(cmd, "add")
+}
+
+func (c *AddCommand) detectInputType(input string) InputType {
+	if strings.HasPrefix(input, "https://gist.github.com/") {
+		return InputTypeGistURL
+	}
+	return InputTypeFile
+}
+
+func runAddCommand(cmd *cobra.Command, args []string) error {
+	addCmd := &AddCommand{
+		Input: args[0],
+	}
+
+	var err error
+	addCmd.Force, err = cmd.Flags().GetBool("force")
+	if err != nil {
+		return err
+	}
+
+	// Detect input type and execute appropriate logic
+	inputType := addCmd.detectInputType(addCmd.Input)
+
+	switch inputType {
+	case InputTypeFile:
+		return addCmd.handleFileUpload(cmd)
+	case InputTypeGistURL:
+		return addCmd.handleGistImport(cmd)
+	default:
+		return errors.NewValidationErrorMsg("AddCommand", "unsupported input type")
+	}
+}
+
+func (c *AddCommand) handleFileUpload(cmd *cobra.Command) error {
+	filename := c.Input
 
 	// Check if file exists
 	info, err := os.Stat(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errors.NewFileSystemErrorMsg("upload", fmt.Sprintf("file not found: %s", filename))
+			return errors.NewFileSystemErrorMsg("add", fmt.Sprintf("file not found: %s", filename))
 		}
 		return errors.WrapWithMessage(err, "failed to access file")
 	}
 
 	// Check if it's a regular file
 	if info.IsDir() {
-		return errors.NewValidationErrorMsg("upload", fmt.Sprintf("%s is a directory, not a file", filename))
+		return errors.NewValidationErrorMsg("add", fmt.Sprintf("%s is a directory, not a file", filename))
 	}
 
 	// Read file content
@@ -99,7 +131,7 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 	ctx := context.Background()
 	username, err := authManager.GetCurrentUser(ctx)
 	if err != nil {
-		return errors.NewAuthErrorMsg("upload", "not authenticated. Please run 'pv login' first")
+		return errors.NewAuthErrorMsg("add", "not authenticated. Please run 'pv login' first")
 	}
 
 	// Create GitHub client
@@ -120,7 +152,7 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 	})
 
 	// Perform pre-sync to ensure we have latest data for duplicate detection
-	if err := performPreSync(cmd, force); err != nil {
+	if err := performPreSync(cmd, c.Force); err != nil {
 		return err
 	}
 
@@ -161,7 +193,7 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 		}
 
 		// Handle duplicate based on force flag
-		if !force {
+		if !c.Force {
 			// Interactive mode - ask for confirmation
 			fmt.Fprintf(cmd.OutOrStdout(), "Update existing prompt '%s'? (Y/n): ", duplicateMatch.Entry.Name)
 
@@ -175,7 +207,7 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 			// Default is yes (empty response or 'y'/'yes')
 			if response != "" && response != "y" && response != "yes" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Upload cancelled.\n")
-				return errors.NewValidationErrorMsg("upload", "upload cancelled by user")
+				return errors.NewValidationErrorMsg("add", "upload cancelled by user")
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Updating existing prompt...\n")
@@ -282,11 +314,8 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to update local index: %v\n", err)
 	}
 
-	// GitHub index update will be handled by auto-sync middleware
-
 	// Display success message
 	fmt.Fprintf(cmd.OutOrStdout(), "\n✓ Successfully uploaded '%s' by %s\n", prompt.Name, prompt.Author)
-	fmt.Fprintf(cmd.OutOrStdout(), "  Category: %s\n", prompt.Category)
 	fmt.Fprintf(cmd.OutOrStdout(), "  Tags: %v\n", strings.Join(prompt.Tags, ", "))
 	fmt.Fprintf(cmd.OutOrStdout(), "  Version: %s\n", prompt.Version)
 	if prompt.Description != "" {
@@ -295,4 +324,104 @@ func runUpload(cmd *cobra.Command, args []string, force bool) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "\n  View at: %s\n", prompt.GistURL)
 
 	return nil
+}
+
+func (c *AddCommand) handleGistImport(cmd *cobra.Command) error {
+	// Perform pre-sync to ensure we have latest index and avoid conflicts
+	if err := performPreSync(cmd, false); err != nil {
+		return err
+	}
+
+	// Initialize dependencies
+	authManager := auth.NewManager()
+	token, err := authManager.GetToken()
+	if err != nil {
+		return errors.WrapWithMessage(err, errors.ErrMsgAuthRequired)
+	}
+	username, err := authManager.GetUsername()
+	if err != nil {
+		return errors.WrapWithMessage(err, "failed to get username")
+	}
+
+	gistClient, err := gist.NewClient(token)
+	if err != nil {
+		return errors.WrapWithMessage(err, errors.ErrMsgNetworkTimeout)
+	}
+
+	// Create UI adapter for import confirmation
+	uiAdapter := &addUIAdapter{cmd: cmd, force: c.Force}
+
+	// Create import manager
+	manager := imports.NewManager(gistClient, uiAdapter)
+
+	ctx := context.Background()
+
+	// Create cache manager to work with local index
+	_, cacheManager := createManagers()
+
+	// Get current local index after preSync
+	index, err := cacheManager.GetIndex()
+	if err != nil {
+		// If index doesn't exist, create a new one
+		index = &models.Index{
+			Username:        username,
+			Entries:         []models.IndexEntry{},
+			ImportedEntries: []models.IndexEntry{},
+			UpdatedAt:       time.Now(),
+		}
+	}
+
+	// Import the prompt (this will modify the index's ImportedEntries)
+	result, err := manager.ImportPrompt(ctx, c.Input, index)
+	if err != nil {
+		errMsg := errors.GetImportErrorMessage(err)
+		cmd.PrintErrf("%s\n", errMsg)
+		return err
+	}
+
+	// Update the local index timestamp
+	index.UpdatedAt = time.Now()
+
+	// Save the updated local index
+	if err := cacheManager.SaveIndex(index); err != nil {
+		// Don't fail the import if index saving fails
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to update local index: %v\n", err)
+	}
+
+	// Display result
+	if result.IsUpdate {
+		cmd.Printf("Successfully updated prompt (gist: %s) from version %s to %s\n",
+			result.GistID, result.OldVersion, result.NewVersion)
+	} else {
+		cmd.Printf("Successfully imported prompt (gist: %s)\n", result.GistID)
+	}
+
+	return nil
+}
+
+// addUIAdapter implements the UI interface for imports.Manager with force support
+type addUIAdapter struct {
+	cmd   *cobra.Command
+	force bool
+}
+
+func (u *addUIAdapter) Confirm(message string) (bool, error) {
+	// If force is enabled, automatically confirm
+	if u.force {
+		u.cmd.Printf("%s (force mode: automatically confirmed)\n", message)
+		return true, nil
+	}
+
+	// Interactive mode - ask for confirmation
+	u.cmd.Printf("%s (Y/n): ", message)
+
+	reader := bufio.NewReader(u.cmd.InOrStdin())
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false, errors.WrapWithMessage(err, "failed to read confirmation")
+	}
+
+	response = strings.TrimSpace(strings.ToLower(response))
+	// Default is yes (empty response or 'y'/'yes')
+	return response == "" || response == "y" || response == "yes", nil
 }

@@ -73,7 +73,6 @@ func performPreSync(cmd *cobra.Command, force bool) error {
 }
 
 // performFullSync performs full bidirectional synchronization
-// This replaces the old performAutoSync to provide real sync instead of just pushing to GitHub
 func performFullSync(cmd *cobra.Command) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
