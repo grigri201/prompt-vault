@@ -8,7 +8,7 @@ import (
 
 type RootCmd = *cobra.Command
 
-func NewRootCommand(lc ListCmd) RootCmd {
+func NewRootCommand(lc ListCmd, authCmd AuthCmd) RootCmd {
 	root := &cobra.Command{
 		Use:   "pv",
 		Short: "Prompt Vault CLI",
@@ -16,6 +16,6 @@ func NewRootCommand(lc ListCmd) RootCmd {
 			fmt.Println("Hello, pv!")
 		},
 	}
-	root.AddCommand(lc)
+	root.AddCommand(lc, authCmd)
 	return root
 }

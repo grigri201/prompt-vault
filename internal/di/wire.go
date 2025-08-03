@@ -4,19 +4,36 @@
 package di
 
 import (
-	"pv/cmd"
-	"pv/internal/infra"
+	"github.com/spf13/cobra"
+
+	"github.com/grigri/pv/internal/auth"
+	"github.com/grigri/pv/internal/config"
+	"github.com/grigri/pv/internal/infra"
+	"github.com/grigri/pv/internal/service"
 
 	"github.com/google/wire"
 )
 
-var StoreSet = wire.NewSet(
+// InfraSet provides infrastructure components
+var InfraSet = wire.NewSet(
 	infra.NewMemoryStore,
-	cmd.NewListCommand,
-	cmd.NewRootCommand,
+	config.NewFileStore,
 )
 
-func BuildCLI() (cmd.RootCmd, error) {
-	wire.Build(StoreSet)
+// AuthSet provides authentication related components
+var AuthSet = wire.NewSet(
+	auth.NewGitHubClient,
+	auth.NewTokenValidator,
+	service.NewAuthService,
+)
+
+// CommandSet provides CLI commands
+var CommandSet = wire.NewSet(
+	ProvideCommands,
+	ProvideRootCommand,
+)
+
+func BuildCLI() (*cobra.Command, error) {
+	wire.Build(InfraSet, AuthSet, CommandSet)
 	return nil, nil
 }

@@ -1,7 +1,7 @@
 package infra
 
 import (
-	"pv/internal/model"
+	"github.com/grigri/pv/internal/model"
 )
 
 type Store interface {

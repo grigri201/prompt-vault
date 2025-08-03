@@ -2,7 +2,8 @@ package main
 
 import (
 	"log"
-	"pv/internal/di"
+
+	"github.com/grigri/pv/internal/di"
 )
 
 func main() {

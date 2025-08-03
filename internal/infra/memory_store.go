@@ -1,6 +1,6 @@
 package infra
 
-import "pv/internal/model"
+import "github.com/grigri/pv/internal/model"
 
 type MemoryStore struct {
 	prompts []model.Prompt

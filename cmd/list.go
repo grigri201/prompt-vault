@@ -3,9 +3,10 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"pv/internal/infra"
 
 	"github.com/spf13/cobra"
+
+	"github.com/grigri/pv/internal/infra"
 )
 
 type ListCmd *cobra.Command

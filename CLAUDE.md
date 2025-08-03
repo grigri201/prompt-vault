@@ -68,3 +68,7 @@ go vet ./...
 
 - `pv` - Shows greeting message
 - `pv list` - Lists all prompts from the store (currently hardcoded in MemoryStore)
+
+## Communication Guidelines
+
+- 用中文交流

@@ -8,20 +8,39 @@ package di
 
 import (
 	"github.com/google/wire"
+	"github.com/grigri/pv/internal/auth"
+	"github.com/grigri/pv/internal/config"
+	"github.com/grigri/pv/internal/infra"
+	"github.com/grigri/pv/internal/service"
 	"github.com/spf13/cobra"
-	"pv/cmd"
-	"pv/internal/infra"
 )
 
 // Injectors from wire.go:
 
 func BuildCLI() (*cobra.Command, error) {
 	store := infra.NewMemoryStore()
-	listCmd := cmd.NewListCommand(store)
-	command := cmd.NewRootCommand(listCmd)
+	configStore, err := config.NewFileStore()
+	if err != nil {
+		return nil, err
+	}
+	gitHubClient := auth.NewGitHubClient()
+	tokenValidator := auth.NewTokenValidator(gitHubClient)
+	authService := service.NewAuthService(configStore, gitHubClient, tokenValidator)
+	commands := ProvideCommands(store, authService)
+	command := ProvideRootCommand(commands)
 	return command, nil
 }
 
 // wire.go:
 
-var StoreSet = wire.NewSet(infra.NewMemoryStore, cmd.NewListCommand, cmd.NewRootCommand)
+// InfraSet provides infrastructure components
+var InfraSet = wire.NewSet(infra.NewMemoryStore, config.NewFileStore)
+
+// AuthSet provides authentication related components
+var AuthSet = wire.NewSet(auth.NewGitHubClient, auth.NewTokenValidator, service.NewAuthService)
+
+// CommandSet provides CLI commands
+var CommandSet = wire.NewSet(
+	ProvideCommands,
+	ProvideRootCommand,
+)
