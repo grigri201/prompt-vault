@@ -10,6 +10,7 @@ import (
 	"github.com/grigri/pv/internal/config"
 	"github.com/grigri/pv/internal/infra"
 	"github.com/grigri/pv/internal/service"
+	"github.com/grigri/pv/internal/validator"
 
 	"github.com/google/wire"
 )
@@ -27,6 +28,12 @@ var AuthSet = wire.NewSet(
 	service.NewAuthService,
 )
 
+// ServiceSet provides service layer components
+var ServiceSet = wire.NewSet(
+	validator.NewYAMLValidator,
+	service.NewPromptService,
+)
+
 // CommandSet provides CLI commands
 var CommandSet = wire.NewSet(
 	ProvideCommands,
@@ -34,6 +41,6 @@ var CommandSet = wire.NewSet(
 )
 
 func BuildCLI() (*cobra.Command, error) {
-	wire.Build(InfraSet, AuthSet, CommandSet)
+	wire.Build(InfraSet, AuthSet, ServiceSet, CommandSet)
 	return nil, nil
 }

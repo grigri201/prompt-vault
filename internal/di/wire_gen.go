@@ -12,6 +12,7 @@ import (
 	"github.com/grigri/pv/internal/config"
 	"github.com/grigri/pv/internal/infra"
 	"github.com/grigri/pv/internal/service"
+	"github.com/grigri/pv/internal/validator"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +27,9 @@ func BuildCLI() (*cobra.Command, error) {
 	gitHubClient := auth.NewGitHubClient()
 	tokenValidator := auth.NewTokenValidator(gitHubClient)
 	authService := service.NewAuthService(store, gitHubClient, tokenValidator)
-	commands := ProvideCommands(infraStore, authService)
+	yamlValidator := validator.NewYAMLValidator()
+	promptService := service.NewPromptService(infraStore, yamlValidator)
+	commands := ProvideCommands(infraStore, authService, promptService)
 	command := ProvideRootCommand(commands)
 	return command, nil
 }
@@ -38,6 +41,9 @@ var InfraSet = wire.NewSet(infra.NewGitHubStore, config.NewFileStore)
 
 // AuthSet provides authentication related components
 var AuthSet = wire.NewSet(auth.NewGitHubClient, auth.NewTokenValidator, service.NewAuthService)
+
+// ServiceSet provides service layer components
+var ServiceSet = wire.NewSet(validator.NewYAMLValidator, service.NewPromptService)
 
 // CommandSet provides CLI commands
 var CommandSet = wire.NewSet(

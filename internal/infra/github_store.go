@@ -208,9 +208,17 @@ func (g *GitHubStore) List() ([]model.Prompt, error) {
 			continue
 		}
 
+		// Extract name from filename, supporting both .md and .yaml extensions
+		name := indexedPrompt.FilePath
+		if strings.HasSuffix(name, ".md") {
+			name = strings.TrimSuffix(name, ".md")
+		} else if strings.HasSuffix(name, ".yaml") {
+			name = strings.TrimSuffix(name, ".yaml")
+		}
+
 		prompt := model.Prompt{
 			ID:      gistID,
-			Name:    strings.TrimSuffix(indexedPrompt.FilePath, ".md"),
+			Name:    name,
 			Author:  gist.GetOwner().GetLogin(),
 			GistURL: indexedPrompt.GistURL,
 		}
@@ -234,16 +242,22 @@ func (g *GitHubStore) Add(prompt model.Prompt) error {
 
 	ctx := context.Background()
 
-	// Create filename from prompt name
-	fileName := prompt.Name + ".md"
+	// Create filename using YAML format from prompt name
+	fileName := prompt.Name + ".yaml"
 
-	// Create new gist
+	// Build gist description with prompt metadata
+	description := fmt.Sprintf("Prompt: %s", prompt.Name)
+	if prompt.Description != "" {
+		description = fmt.Sprintf("Prompt: %s - %s", prompt.Name, prompt.Description)
+	}
+
+	// Create new gist with actual prompt content
 	gist := &github.Gist{
-		Description: github.Ptr(fmt.Sprintf("Prompt: %s", prompt.Name)),
+		Description: github.Ptr(description),
 		Public:      github.Ptr(false),
 		Files: map[github.GistFilename]github.GistFile{
 			github.GistFilename(fileName): {
-				Content: github.Ptr("# " + prompt.Name + "\n\n<!-- Add your prompt content here -->"),
+				Content: github.Ptr(prompt.Content),
 			},
 		},
 	}
