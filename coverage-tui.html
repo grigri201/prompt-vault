@@ -1,0 +1,1935 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>tui: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/grigri/pv/internal/tui/confirm.go (100.0%)</option>
+				
+				<option value="file1">github.com/grigri/pv/internal/tui/error.go (70.7%)</option>
+				
+				<option value="file2">github.com/grigri/pv/internal/tui/factory.go (0.0%)</option>
+				
+				<option value="file3">github.com/grigri/pv/internal/tui/interface.go (100.0%)</option>
+				
+				<option value="file4">github.com/grigri/pv/internal/tui/mock.go (81.5%)</option>
+				
+				<option value="file5">github.com/grigri/pv/internal/tui/prompt_list.go (96.1%)</option>
+				
+				<option value="file6">github.com/grigri/pv/internal/tui/testing_utils.go (88.7%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package tui
+
+import (
+        "fmt"
+        "strings"
+
+        "github.com/charmbracelet/bubbletea"
+        "github.com/charmbracelet/lipgloss"
+        "github.com/grigri/pv/internal/model"
+)
+
+// ConfirmModel represents the state of the confirmation dialog
+type ConfirmModel struct {
+        prompt      model.Prompt
+        confirmed   bool
+        cancelled   bool
+        err         error
+        width       int
+        height      int
+}
+
+// NewConfirmModel creates a new confirmation model for the given prompt
+func NewConfirmModel(prompt model.Prompt) ConfirmModel <span class="cov8" title="1">{
+        return ConfirmModel{
+                prompt:    prompt,
+                confirmed: false,
+                cancelled: false,
+                width:     60, // ConfirmDialogWidth from interface.go
+                height:    10, // ConfirmDialogHeight from interface.go
+        }
+}</span>
+
+// Init initializes the confirmation model
+func (m ConfirmModel) Init() tea.Cmd <span class="cov8" title="1">{
+        return nil
+}</span>
+
+// Update handles user input and updates the model state
+func (m ConfirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) <span class="cov8" title="1">{
+        switch msg := msg.(type) </span>{
+        case tea.WindowSizeMsg:<span class="cov8" title="1">
+                m.width = msg.Width
+                m.height = msg.Height
+                return m, nil</span>
+
+        case tea.KeyMsg:<span class="cov8" title="1">
+                switch strings.ToLower(msg.String()) </span>{
+                case "y":<span class="cov8" title="1"> // KeyYes from interface.go
+                        m.confirmed = true
+                        return m, tea.Quit</span>
+
+                case "n", "esc", "q":<span class="cov8" title="1"> // KeyNo, KeyEscape, KeyQuit from interface.go
+                        m.cancelled = true
+                        return m, tea.Quit</span>
+
+                case "ctrl+c":<span class="cov8" title="1"> // KeyCtrlC from interface.go
+                        m.cancelled = true
+                        return m, tea.Quit</span>
+                }
+        }
+
+        <span class="cov8" title="1">return m, nil</span>
+}
+
+// View renders the confirmation dialog
+func (m ConfirmModel) View() string <span class="cov8" title="1">{
+        if m.err != nil </span><span class="cov8" title="1">{
+                return m.renderError()
+        }</span>
+
+        <span class="cov8" title="1">return m.renderConfirmDialog()</span>
+}
+
+// renderConfirmDialog renders the main confirmation interface
+func (m ConfirmModel) renderConfirmDialog() string <span class="cov8" title="1">{
+        // Define styles using constants from interface.go
+        titleStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color("#FFA500")). // ColorWarning
+                Bold(true).
+                Align(lipgloss.Center).
+                Width(m.width - 4)
+
+        contentStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color("#FFFFFF")). // ColorText
+                Width(m.width - 4).
+                Align(lipgloss.Left).
+                Padding(0, 1)
+
+        labelStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color("#00D4AA")). // ColorPrimary
+                Bold(true)
+
+        valueStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color("#FFFFFF")) // ColorText
+
+        warningStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color("#FFA500")). // ColorWarning
+                Bold(true).
+                Align(lipgloss.Center).
+                Width(m.width - 4).
+                Padding(1, 0)
+
+        confirmButtonStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color("#FF0000")). // ColorError
+                Background(lipgloss.Color("#550000")).
+                Bold(true).
+                Padding(0, 2).
+                Margin(0, 1)
+
+        cancelButtonStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color("#7C7C7C")). // ColorSecondary
+                Background(lipgloss.Color("#333333")).
+                Bold(true).
+                Padding(0, 2).
+                Margin(0, 1)
+
+        helpStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color("#888888")). // ColorMuted
+                Align(lipgloss.Center).
+                Width(m.width - 4)
+
+        borderStyle := lipgloss.NewStyle().
+                Border(lipgloss.RoundedBorder()).
+                BorderForeground(lipgloss.Color("#444444")). // ColorBorder
+                Width(m.width - 2).
+                Align(lipgloss.Center)
+
+        // Build content
+        var content strings.Builder
+
+        // Title
+        content.WriteString(titleStyle.Render("⚠️  确认删除提示"))
+        content.WriteString("\n\n")
+
+        // Prompt details
+        content.WriteString(contentStyle.Render(
+                fmt.Sprintf("%s %s\n", 
+                        labelStyle.Render("提示名称:"), 
+                        valueStyle.Render(m.truncateString(m.prompt.Name, 40))))) // MaxPromptNameLength
+
+        content.WriteString(contentStyle.Render(
+                fmt.Sprintf("%s %s\n", 
+                        labelStyle.Render("作者:"), 
+                        valueStyle.Render(m.truncateString(m.prompt.Author, 20))))) // MaxAuthorNameLength
+
+        if m.prompt.Description != "" </span><span class="cov8" title="1">{
+                content.WriteString(contentStyle.Render(
+                        fmt.Sprintf("%s %s\n", 
+                                labelStyle.Render("描述:"), 
+                                valueStyle.Render(m.truncateString(m.prompt.Description, 50)))))
+        }</span>
+
+        <span class="cov8" title="1">content.WriteString(contentStyle.Render(
+                fmt.Sprintf("%s %s\n", 
+                        labelStyle.Render("Gist URL:"), 
+                        valueStyle.Render(m.truncateString(m.prompt.GistURL, 60)))))
+
+        content.WriteString("\n")
+
+        // Warning message
+        content.WriteString(warningStyle.Render("此操作不可撤销，确定要删除这个提示吗？"))
+        content.WriteString("\n\n")
+
+        // Buttons
+        buttonsLine := confirmButtonStyle.Render("[Y] 确认删除") + 
+                "    " + 
+                cancelButtonStyle.Render("[N] 取消")
+        
+        content.WriteString(lipgloss.NewStyle().
+                Align(lipgloss.Center).
+                Width(m.width - 4).
+                Render(buttonsLine))
+        content.WriteString("\n\n")
+
+        // Help text
+        content.WriteString(helpStyle.Render("Y: 确认  N: 取消  Esc: 取消")) // HelpTextConfirmation
+
+        // Wrap in border
+        return borderStyle.Render(content.String())</span>
+}
+
+// renderError renders an error state
+func (m ConfirmModel) renderError() string <span class="cov8" title="1">{
+        errorStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color("#FF0000")). // ColorError
+                Bold(true).
+                Align(lipgloss.Center).
+                Width(m.width - 4).
+                Padding(2)
+
+        borderStyle := lipgloss.NewStyle().
+                Border(lipgloss.RoundedBorder()).
+                BorderForeground(lipgloss.Color("#FF0000")). // ColorError
+                Width(m.width - 2).
+                Align(lipgloss.Center)
+
+        content := fmt.Sprintf("❌ 确认对话框错误\n\n%s\n\n按任意键继续...", m.err.Error())
+        
+        return borderStyle.Render(errorStyle.Render(content))
+}</span>
+
+// truncateString truncates a string to the specified length with ellipsis
+func (m ConfirmModel) truncateString(s string, maxLen int) string <span class="cov8" title="1">{
+        if len(s) &lt;= maxLen </span><span class="cov8" title="1">{
+                return s
+        }</span>
+        
+        <span class="cov8" title="1">if maxLen &lt;= 3 </span><span class="cov8" title="1">{
+                return s[:maxLen]
+        }</span>
+        
+        <span class="cov8" title="1">return s[:maxLen-3] + "..."</span>
+}
+
+// IsConfirmed returns true if the user confirmed the deletion
+func (m ConfirmModel) IsConfirmed() bool <span class="cov8" title="1">{
+        return m.confirmed
+}</span>
+
+// IsCancelled returns true if the user cancelled the operation
+func (m ConfirmModel) IsCancelled() bool <span class="cov8" title="1">{
+        return m.cancelled
+}</span>
+
+// HasError returns true if there's an error state
+func (m ConfirmModel) HasError() bool <span class="cov8" title="1">{
+        return m.err != nil
+}</span>
+
+// SetError sets an error state for the model
+func (m *ConfirmModel) SetError(err error) <span class="cov8" title="1">{
+        m.err = err
+}</pre>
+		
+		<pre class="file" id="file1" style="display: none">package tui
+
+import (
+        "fmt"
+        "strings"
+
+        tea "github.com/charmbracelet/bubbletea"
+        "github.com/charmbracelet/lipgloss"
+        "github.com/grigri/pv/internal/errors"
+)
+
+// ErrorModel represents the TUI model for displaying error messages
+// with appropriate styling and user interaction capabilities.
+type ErrorModel struct {
+        err         error
+        message     string
+        errorType   errors.ErrorType
+        terminated  bool
+        width       int
+        height      int
+}
+
+// NewErrorModel creates a new ErrorModel with the given error.
+// It automatically determines the error type and formats appropriate messages.
+func NewErrorModel(err error) ErrorModel <span class="cov8" title="1">{
+        var errorType errors.ErrorType
+        var message string
+
+        if appErr, ok := err.(*errors.AppError); ok </span><span class="cov0" title="0">{
+                errorType = appErr.Type
+                message = appErr.Message
+        }</span> else<span class="cov8" title="1"> {
+                errorType = errors.ErrUnknown
+                message = err.Error()
+        }</span>
+
+        <span class="cov8" title="1">return ErrorModel{
+                err:       err,
+                message:   message,
+                errorType: errorType,
+                width:     MinScreenWidth,
+                height:    MinScreenHeight,
+        }</span>
+}
+
+// Init implements the bubbletea Model interface
+func (m ErrorModel) Init() tea.Cmd <span class="cov8" title="1">{
+        return nil
+}</span>
+
+// Update implements the bubbletea Model interface
+// Handles keyboard input for continuing after error display
+func (m ErrorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) <span class="cov8" title="1">{
+        switch msg := msg.(type) </span>{
+        case tea.WindowSizeMsg:<span class="cov8" title="1">
+                m.width = msg.Width
+                m.height = msg.Height
+                return m, nil</span>
+
+        case tea.KeyMsg:<span class="cov8" title="1">
+                // Any key press will terminate the error display
+                switch msg.String() </span>{
+                case KeyCtrlC:<span class="cov0" title="0">
+                        m.terminated = true
+                        return m, tea.Quit</span>
+                default:<span class="cov8" title="1">
+                        // Any other key continues (exits the error display)
+                        m.terminated = true
+                        return m, tea.Quit</span>
+                }
+        }
+
+        <span class="cov8" title="1">return m, nil</span>
+}
+
+// View implements the bubbletea Model interface
+// Renders the error display with appropriate styling and icons
+func (m ErrorModel) View() string <span class="cov8" title="1">{
+        if m.width &lt; MinScreenWidth </span><span class="cov8" title="1">{
+                m.width = MinScreenWidth
+        }</span>
+
+        // Get error icon and color based on error type
+        <span class="cov8" title="1">icon, color := m.getErrorIconAndColor()
+
+        // Create the main content box style
+        boxStyle := lipgloss.NewStyle().
+                Border(lipgloss.RoundedBorder()).
+                BorderForeground(lipgloss.Color(color)).
+                Padding(1, 2).
+                Width(m.width - 4).
+                Align(lipgloss.Center)
+
+        // Create the title style
+        titleStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color(color)).
+                Bold(true).
+                Align(lipgloss.Center)
+
+        // Create the message style
+        messageStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color(ColorText)).
+                Align(lipgloss.Center).
+                Margin(1, 0)
+
+        // Create the help text style
+        helpStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color(ColorMuted)).
+                Align(lipgloss.Center).
+                Margin(1, 0)
+
+        // Build the content
+        title := titleStyle.Render(fmt.Sprintf("%s %s", icon, m.getErrorTitle()))
+        message := messageStyle.Render(m.wrapMessage(m.message, m.width-8))
+        help := helpStyle.Render("按任意键继续...")
+
+        content := lipgloss.JoinVertical(
+                lipgloss.Center,
+                title,
+                message,
+                help,
+        )
+
+        box := boxStyle.Render(content)
+
+        // Center the box vertically on screen
+        if m.height &gt; 0 </span><span class="cov8" title="1">{
+                verticalPadding := (m.height - lipgloss.Height(box)) / 2
+                if verticalPadding &gt; 0 </span><span class="cov8" title="1">{
+                        box = lipgloss.NewStyle().
+                                Margin(verticalPadding, 0).
+                                Render(box)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return box</span>
+}
+
+// getErrorIconAndColor returns the appropriate icon and color for the error type
+func (m ErrorModel) getErrorIconAndColor() (string, string) <span class="cov8" title="1">{
+        switch m.errorType </span>{
+        case errors.ErrValidation:<span class="cov0" title="0">
+                return "⚠️", ColorWarning</span>
+        case errors.ErrAuth:<span class="cov0" title="0">
+                return "🔒", ColorError</span>
+        case errors.ErrStorage:<span class="cov0" title="0">
+                return "💾", ColorError</span>
+        case errors.ErrNetwork:<span class="cov0" title="0">
+                return "🌐", ColorError</span>
+        case errors.ErrPermission:<span class="cov0" title="0">
+                return "🔐", ColorError</span>
+        default:<span class="cov8" title="1">
+                return "❌", ColorError</span>
+        }
+}
+
+// getErrorTitle returns the appropriate title for the error type
+func (m ErrorModel) getErrorTitle() string <span class="cov8" title="1">{
+        switch m.errorType </span>{
+        case errors.ErrValidation:<span class="cov0" title="0">
+                return "输入验证错误"</span>
+        case errors.ErrAuth:<span class="cov0" title="0">
+                return "身份验证错误"</span>
+        case errors.ErrStorage:<span class="cov0" title="0">
+                return "存储错误"</span>
+        case errors.ErrNetwork:<span class="cov0" title="0">
+                return "网络错误"</span>
+        case errors.ErrPermission:<span class="cov0" title="0">
+                return "权限错误"</span>
+        default:<span class="cov8" title="1">
+                return "操作失败"</span>
+        }
+}
+
+// wrapMessage wraps the error message to fit within the specified width
+func (m ErrorModel) wrapMessage(message string, maxWidth int) string <span class="cov8" title="1">{
+        if len(message) &lt;= maxWidth </span><span class="cov8" title="1">{
+                return message
+        }</span>
+
+        <span class="cov8" title="1">var lines []string
+        words := strings.Fields(message)
+        currentLine := ""
+
+        for _, word := range words </span><span class="cov8" title="1">{
+                if len(currentLine)+len(word)+1 &lt;= maxWidth </span><span class="cov8" title="1">{
+                        if currentLine == "" </span><span class="cov8" title="1">{
+                                currentLine = word
+                        }</span> else<span class="cov8" title="1"> {
+                                currentLine = currentLine + " " + word
+                        }</span>
+                } else<span class="cov8" title="1"> {
+                        if currentLine != "" </span><span class="cov8" title="1">{
+                                lines = append(lines, currentLine)
+                        }</span>
+                        <span class="cov8" title="1">currentLine = word</span>
+                }
+        }
+
+        <span class="cov8" title="1">if currentLine != "" </span><span class="cov8" title="1">{
+                lines = append(lines, currentLine)
+        }</span>
+
+        <span class="cov8" title="1">return strings.Join(lines, "\n")</span>
+}
+
+// IsTerminated returns true if the error display has been terminated by user input
+func (m ErrorModel) IsTerminated() bool <span class="cov8" title="1">{
+        return m.terminated
+}</span>
+
+// ShowError is a convenience function to display an error using bubbletea
+// It blocks until the user presses any key to continue
+func ShowError(err error) error <span class="cov0" title="0">{
+        model := NewErrorModel(err)
+        
+        program := tea.NewProgram(model, tea.WithAltScreen())
+        finalModel, runErr := program.Run()
+        
+        if runErr != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to run error display: %w", runErr)
+        }</span>
+
+        // Check if the user terminated properly
+        <span class="cov0" title="0">if errorModel, ok := finalModel.(ErrorModel); ok &amp;&amp; errorModel.IsTerminated() </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">return fmt.Errorf("error display was not properly terminated")</span>
+}</pre>
+		
+		<pre class="file" id="file2" style="display: none">package tui
+
+import (
+        "fmt"
+
+        tea "github.com/charmbracelet/bubbletea"
+        "github.com/grigri/pv/internal/model"
+)
+
+// BubbleTeaTUI implements the TUIInterface using the bubbletea framework.
+// It serves as a factory and integration point for all TUI components,
+// handling program startup, cleanup, and error management.
+type BubbleTeaTUI struct {
+        // altScreen determines whether to use alternative screen buffer
+        // This is useful for full-screen TUI applications
+        altScreen bool
+        
+        // mouseEnabled determines whether mouse input is enabled
+        mouseEnabled bool
+}
+
+// NewBubbleTeaTUI creates a new instance of BubbleTeaTUI with default settings.
+// By default, it uses alternative screen and disables mouse input for better
+// compatibility with terminal environments.
+func NewBubbleTeaTUI() *BubbleTeaTUI <span class="cov0" title="0">{
+        return &amp;BubbleTeaTUI{
+                altScreen:    true,
+                mouseEnabled: false,
+        }
+}</span>
+
+// NewBubbleTeaTUIWithOptions creates a new BubbleTeaTUI with custom options.
+// This allows fine-tuning the TUI behavior for different use cases.
+func NewBubbleTeaTUIWithOptions(altScreen, mouseEnabled bool) *BubbleTeaTUI <span class="cov0" title="0">{
+        return &amp;BubbleTeaTUI{
+                altScreen:    altScreen,
+                mouseEnabled: mouseEnabled,
+        }
+}</span>
+
+// ShowPromptList displays a list of prompts in an interactive interface
+// and returns the user-selected prompt. This method implements the core
+// list selection functionality for the delete command.
+func (tui *BubbleTeaTUI) ShowPromptList(prompts []model.Prompt) (model.Prompt, error) <span class="cov0" title="0">{
+        // Handle empty prompt list
+        if len(prompts) == 0 </span><span class="cov0" title="0">{
+                return model.Prompt{}, fmt.Errorf(ErrMsgNoPromptsFound)
+        }</span>
+
+        // Create the prompt list model
+        <span class="cov0" title="0">listModel := NewPromptListModel(prompts, ListAll, "")
+
+        // Configure program options
+        var options []tea.ProgramOption
+        if tui.altScreen </span><span class="cov0" title="0">{
+                options = append(options, tea.WithAltScreen())
+        }</span>
+        <span class="cov0" title="0">if tui.mouseEnabled </span><span class="cov0" title="0">{
+                options = append(options, tea.WithMouseCellMotion())
+        }</span>
+
+        // Create and run the bubbletea program
+        <span class="cov0" title="0">program := tea.NewProgram(listModel, options...)
+        
+        finalModel, err := program.Run()
+        if err != nil </span><span class="cov0" title="0">{
+                return model.Prompt{}, fmt.Errorf("%s: %w", ErrMsgTUIRenderFailed, err)
+        }</span>
+
+        // Extract the final state from the model
+        <span class="cov0" title="0">if promptListModel, ok := finalModel.(PromptListModel); ok </span><span class="cov0" title="0">{
+                // Check if user quit without selection
+                if promptListModel.HasQuit() </span><span class="cov0" title="0">{
+                        return model.Prompt{}, fmt.Errorf(ErrMsgUserCancelled)
+                }</span>
+
+                // Check for errors during execution
+                <span class="cov0" title="0">if err := promptListModel.GetError(); err != nil </span><span class="cov0" title="0">{
+                        return model.Prompt{}, fmt.Errorf("%s: %w", ErrMsgTUIRenderFailed, err)
+                }</span>
+
+                // Check if a selection was made
+                <span class="cov0" title="0">if selected := promptListModel.GetSelected(); selected != nil </span><span class="cov0" title="0">{
+                        return *selected, nil
+                }</span>
+
+                // No selection made (should not happen if not quit)
+                <span class="cov0" title="0">return model.Prompt{}, fmt.Errorf(ErrMsgInvalidSelection)</span>
+        }
+
+        // Model type assertion failed
+        <span class="cov0" title="0">return model.Prompt{}, fmt.Errorf("%s: invalid model type", ErrMsgTUIInitFailed)</span>
+}
+
+// ShowPromptListFiltered displays a filtered list of prompts and returns
+// the user-selected prompt. This method is used when showing search results.
+func (tui *BubbleTeaTUI) ShowPromptListFiltered(prompts []model.Prompt, filter string) (model.Prompt, error) <span class="cov0" title="0">{
+        // Handle empty filtered results
+        if len(prompts) == 0 </span><span class="cov0" title="0">{
+                return model.Prompt{}, fmt.Errorf("没有找到包含 \"%s\" 的提示", filter)
+        }</span>
+
+        // Create the prompt list model with filtered mode
+        <span class="cov0" title="0">listModel := NewPromptListModel(prompts, ListFiltered, filter)
+
+        // Configure program options
+        var options []tea.ProgramOption
+        if tui.altScreen </span><span class="cov0" title="0">{
+                options = append(options, tea.WithAltScreen())
+        }</span>
+        <span class="cov0" title="0">if tui.mouseEnabled </span><span class="cov0" title="0">{
+                options = append(options, tea.WithMouseCellMotion())
+        }</span>
+
+        // Create and run the bubbletea program
+        <span class="cov0" title="0">program := tea.NewProgram(listModel, options...)
+        
+        finalModel, err := program.Run()
+        if err != nil </span><span class="cov0" title="0">{
+                return model.Prompt{}, fmt.Errorf("%s: %w", ErrMsgTUIRenderFailed, err)
+        }</span>
+
+        // Extract the final state from the model
+        <span class="cov0" title="0">if promptListModel, ok := finalModel.(PromptListModel); ok </span><span class="cov0" title="0">{
+                // Check if user quit without selection
+                if promptListModel.HasQuit() </span><span class="cov0" title="0">{
+                        return model.Prompt{}, fmt.Errorf(ErrMsgUserCancelled)
+                }</span>
+
+                // Check for errors during execution
+                <span class="cov0" title="0">if err := promptListModel.GetError(); err != nil </span><span class="cov0" title="0">{
+                        return model.Prompt{}, fmt.Errorf("%s: %w", ErrMsgTUIRenderFailed, err)
+                }</span>
+
+                // Check if a selection was made
+                <span class="cov0" title="0">if selected := promptListModel.GetSelected(); selected != nil </span><span class="cov0" title="0">{
+                        return *selected, nil
+                }</span>
+
+                // No selection made (should not happen if not quit)
+                <span class="cov0" title="0">return model.Prompt{}, fmt.Errorf(ErrMsgInvalidSelection)</span>
+        }
+
+        // Model type assertion failed
+        <span class="cov0" title="0">return model.Prompt{}, fmt.Errorf("%s: invalid model type", ErrMsgTUIInitFailed)</span>
+}
+
+// ShowConfirm displays a confirmation dialog for the given prompt
+// and returns true if the user confirms the deletion, false if cancelled.
+// This method implements the confirmation step required before deletion.
+func (tui *BubbleTeaTUI) ShowConfirm(prompt model.Prompt) (bool, error) <span class="cov0" title="0">{
+        // Create the confirmation model
+        confirmModel := NewConfirmModel(prompt)
+
+        // Configure program options
+        var options []tea.ProgramOption
+        if tui.altScreen </span><span class="cov0" title="0">{
+                options = append(options, tea.WithAltScreen())
+        }</span>
+        <span class="cov0" title="0">if tui.mouseEnabled </span><span class="cov0" title="0">{
+                options = append(options, tea.WithMouseCellMotion())
+        }</span>
+
+        // Create and run the bubbletea program
+        <span class="cov0" title="0">program := tea.NewProgram(confirmModel, options...)
+        
+        finalModel, err := program.Run()
+        if err != nil </span><span class="cov0" title="0">{
+                return false, fmt.Errorf("%s: %w", ErrMsgTUIRenderFailed, err)
+        }</span>
+
+        // Extract the final state from the model
+        <span class="cov0" title="0">if confirmModelFinal, ok := finalModel.(ConfirmModel); ok </span><span class="cov0" title="0">{
+                // Check for errors during execution
+                if confirmModelFinal.HasError() </span><span class="cov0" title="0">{
+                        return false, fmt.Errorf("%s: confirmation dialog error", ErrMsgTUIRenderFailed)
+                }</span>
+
+                // Check if user cancelled
+                <span class="cov0" title="0">if confirmModelFinal.IsCancelled() </span><span class="cov0" title="0">{
+                        return false, fmt.Errorf(ErrMsgUserCancelled)
+                }</span>
+
+                // Return confirmation result
+                <span class="cov0" title="0">return confirmModelFinal.IsConfirmed(), nil</span>
+        }
+
+        // Model type assertion failed
+        <span class="cov0" title="0">return false, fmt.Errorf("%s: invalid model type", ErrMsgTUIInitFailed)</span>
+}
+
+// ShowError displays an error message to the user using the ErrorModel.
+// This is a helper method for displaying errors in a consistent TUI format.
+func (tui *BubbleTeaTUI) ShowError(err error) error <span class="cov0" title="0">{
+        // Create the error model
+        errorModel := NewErrorModel(err)
+
+        // Configure program options
+        var options []tea.ProgramOption
+        if tui.altScreen </span><span class="cov0" title="0">{
+                options = append(options, tea.WithAltScreen())
+        }</span>
+        <span class="cov0" title="0">if tui.mouseEnabled </span><span class="cov0" title="0">{
+                options = append(options, tea.WithMouseCellMotion())
+        }</span>
+
+        // Create and run the bubbletea program
+        <span class="cov0" title="0">program := tea.NewProgram(errorModel, options...)
+        
+        finalModel, runErr := program.Run()
+        if runErr != nil </span><span class="cov0" title="0">{
+                // If we can't even show the error, return the original error
+                return fmt.Errorf("%s: %w (original error: %v)", ErrMsgTUIRenderFailed, runErr, err)
+        }</span>
+
+        // Check if the error display was properly terminated
+        <span class="cov0" title="0">if errorModelFinal, ok := finalModel.(ErrorModel); ok </span><span class="cov0" title="0">{
+                if errorModelFinal.IsTerminated() </span><span class="cov0" title="0">{
+                        return nil // Error was displayed successfully
+                }</span>
+        }
+
+        // If we reach here, something went wrong with the error display
+        <span class="cov0" title="0">return fmt.Errorf("%s: error display was not properly terminated", ErrMsgTUIRenderFailed)</span>
+}
+
+// StartProgram is a low-level method that starts a bubbletea program
+// with the given model and returns the final model state.
+// This method provides direct access to bubbletea program execution
+// for advanced use cases or testing.
+func (tui *BubbleTeaTUI) StartProgram(model tea.Model) (tea.Model, error) <span class="cov0" title="0">{
+        // Configure program options
+        var options []tea.ProgramOption
+        if tui.altScreen </span><span class="cov0" title="0">{
+                options = append(options, tea.WithAltScreen())
+        }</span>
+        <span class="cov0" title="0">if tui.mouseEnabled </span><span class="cov0" title="0">{
+                options = append(options, tea.WithMouseCellMotion())
+        }</span>
+
+        // Create and run the bubbletea program
+        <span class="cov0" title="0">program := tea.NewProgram(model, options...)
+        
+        finalModel, err := program.Run()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("%s: %w", ErrMsgTUIRenderFailed, err)
+        }</span>
+
+        <span class="cov0" title="0">return finalModel, nil</span>
+}
+
+// SetAltScreen enables or disables the alternative screen buffer.
+// When enabled, the TUI will take over the entire terminal screen.
+// When disabled, the TUI will render inline with existing terminal content.
+func (tui *BubbleTeaTUI) SetAltScreen(enabled bool) <span class="cov0" title="0">{
+        tui.altScreen = enabled
+}</span>
+
+// SetMouseEnabled enables or disables mouse input for the TUI.
+// Mouse input can be useful for clicking on items but may not work
+// in all terminal environments.
+func (tui *BubbleTeaTUI) SetMouseEnabled(enabled bool) <span class="cov0" title="0">{
+        tui.mouseEnabled = enabled
+}</span>
+
+// IsAltScreenEnabled returns whether alternative screen is enabled.
+func (tui *BubbleTeaTUI) IsAltScreenEnabled() bool <span class="cov0" title="0">{
+        return tui.altScreen
+}</span>
+
+// IsMouseEnabled returns whether mouse input is enabled.
+func (tui *BubbleTeaTUI) IsMouseEnabled() bool <span class="cov0" title="0">{
+        return tui.mouseEnabled
+}</span>
+
+// Cleanup performs any necessary cleanup operations.
+// Currently this is a no-op but is provided for future extensibility
+// and to maintain a consistent interface.
+func (tui *BubbleTeaTUI) Cleanup() {<span class="cov0" title="0">
+        // Currently no cleanup is needed for bubbletea programs
+        // as they handle their own cleanup automatically.
+        // This method is provided for future extensibility.
+}</pre>
+		
+		<pre class="file" id="file3" style="display: none">package tui
+
+import "github.com/grigri/pv/internal/model"
+
+// TUIInterface defines the contract for terminal user interface operations
+// related to prompt deletion functionality. This interface enables both
+// production bubbletea implementations and test mock implementations.
+type TUIInterface interface {
+        // ShowPromptList displays a list of prompts in an interactive interface
+        // and returns the user-selected prompt. Returns an error if the user
+        // cancels the operation or if there's an interface error.
+        ShowPromptList(prompts []model.Prompt) (model.Prompt, error)
+
+        // ShowConfirm displays a confirmation dialog for the given prompt
+        // and returns true if the user confirms the deletion, false if cancelled.
+        // Returns an error if there's an interface error.
+        ShowConfirm(prompt model.Prompt) (bool, error)
+}
+
+// ListMode represents different modes for displaying prompt lists
+type ListMode int
+
+const (
+        // ListAll displays all available prompts without filtering
+        ListAll ListMode = iota
+        // ListFiltered displays prompts filtered by a search keyword
+        ListFiltered
+)
+
+// String returns the string representation of ListMode
+func (lm ListMode) String() string <span class="cov8" title="1">{
+        switch lm </span>{
+        case ListAll:<span class="cov8" title="1">
+                return "all"</span>
+        case ListFiltered:<span class="cov8" title="1">
+                return "filtered"</span>
+        default:<span class="cov8" title="1">
+                return "unknown"</span>
+        }
+}
+
+// Keyboard shortcut constants for TUI navigation and actions
+const (
+        // Navigation keys
+        KeyUp       = "up"
+        KeyDown     = "down"
+        KeyPageUp   = "pgup"
+        KeyPageDown = "pgdown"
+        KeyHome     = "home"
+        KeyEnd      = "end"
+
+        // Action keys
+        KeyEnter  = "enter"
+        KeyEscape = "esc"
+        KeyQuit   = "q"
+
+        // Confirmation keys
+        KeyYes = "y"
+        KeyNo  = "n"
+
+        // Special keys
+        KeyTab       = "tab"
+        KeyShiftTab  = "shift+tab"
+        KeyBackspace = "backspace"
+        KeyDelete    = "delete"
+        KeySpace     = " "
+
+        // Control keys
+        KeyCtrlC = "ctrl+c"
+        KeyCtrlD = "ctrl+d"
+        KeyCtrlZ = "ctrl+z"
+)
+
+// TUI display constants for consistent formatting
+const (
+        // Screen dimensions
+        MinScreenWidth  = 80
+        MinScreenHeight = 24
+
+        // List display settings
+        MaxListItems         = 20
+        ListItemPadding      = 2
+        ListNumberWidth      = 4
+        MaxPromptNameLength  = 40
+        MaxAuthorNameLength  = 20
+
+        // Confirmation dialog settings
+        ConfirmDialogWidth  = 60
+        ConfirmDialogHeight = 10
+
+        // Colors and styling (compatible with lipgloss)
+        ColorPrimary   = "#00D4AA"
+        ColorSecondary = "#7C7C7C"
+        ColorError     = "#FF0000"
+        ColorWarning   = "#FFA500"
+        ColorSuccess   = "#00FF00"
+        ColorBorder    = "#444444"
+        ColorText      = "#FFFFFF"
+        ColorMuted     = "#888888"
+)
+
+// Error messages for TUI operations
+const (
+        ErrMsgNoPromptsFound     = "没有找到任何提示"
+        ErrMsgListEmpty          = "提示列表为空"
+        ErrMsgUserCancelled      = "用户取消了操作"
+        ErrMsgInvalidSelection   = "无效的选择"
+        ErrMsgTUIInitFailed      = "初始化用户界面失败"
+        ErrMsgTUIRenderFailed    = "渲染界面失败"
+        ErrMsgKeyboardInputError = "键盘输入处理错误"
+)
+
+// Help text constants for user guidance
+const (
+        HelpTextListNavigation = "↑/↓: 导航  Enter: 选择  q: 退出"
+        HelpTextConfirmation   = "Y: 确认  N: 取消  Esc: 取消"
+        HelpTextGeneral        = "按 q 退出"
+        HelpTextLoading        = "正在加载..."
+)</pre>
+		
+		<pre class="file" id="file4" style="display: none">package tui
+
+import (
+        "errors"
+        "fmt"
+
+        "github.com/grigri/pv/internal/model"
+)
+
+// MockTUI is a test implementation of TUIInterface that allows for
+// pre-configured responses and method call history tracking.
+// This enables comprehensive testing of delete command workflows
+// without requiring actual terminal interaction.
+type MockTUI struct {
+        // Pre-configured return values for testing scenarios
+        SelectedPrompt     model.Prompt
+        ConfirmResult      bool
+        ShowPromptListErr  error
+        ShowConfirmErr     error
+
+        // Method call history for verification in tests
+        CallHistory        []MethodCall
+        ShowPromptListArgs [][]model.Prompt
+        ShowConfirmArgs    []model.Prompt
+
+        // Test scenario configurations
+        ShouldSimulateUserCancel    bool
+        ShouldSimulateSelectionErr  bool
+        ShouldSimulateConfirmErr    bool
+        SimulateSlowResponse        bool
+}
+
+// MethodCall represents a recorded method invocation for test verification
+type MethodCall struct {
+        Method    string
+        Args      interface{}
+        Timestamp int64
+}
+
+// NewMockTUI creates a new MockTUI instance with default test configuration
+func NewMockTUI() *MockTUI <span class="cov8" title="1">{
+        return &amp;MockTUI{
+                CallHistory:        make([]MethodCall, 0),
+                ShowPromptListArgs: make([][]model.Prompt, 0),
+                ShowConfirmArgs:    make([]model.Prompt, 0),
+        }
+}</span>
+
+// ShowPromptList implements TUIInterface.ShowPromptList for testing
+// It records the method call and returns pre-configured values or errors
+// based on test scenarios.
+func (m *MockTUI) ShowPromptList(prompts []model.Prompt) (model.Prompt, error) <span class="cov8" title="1">{
+        // Record method call for verification
+        m.CallHistory = append(m.CallHistory, MethodCall{
+                Method: "ShowPromptList",
+                Args:   prompts,
+        })
+        m.ShowPromptListArgs = append(m.ShowPromptListArgs, prompts)
+
+        // Simulate user cancellation scenario
+        if m.ShouldSimulateUserCancel </span><span class="cov8" title="1">{
+                return model.Prompt{}, errors.New(ErrMsgUserCancelled)
+        }</span>
+
+        // Simulate selection error scenario
+        <span class="cov8" title="1">if m.ShouldSimulateSelectionErr </span><span class="cov0" title="0">{
+                return model.Prompt{}, errors.New(ErrMsgInvalidSelection)
+        }</span>
+
+        // Return pre-configured error if set
+        <span class="cov8" title="1">if m.ShowPromptListErr != nil </span><span class="cov0" title="0">{
+                return model.Prompt{}, m.ShowPromptListErr
+        }</span>
+
+        // Handle empty prompts list
+        <span class="cov8" title="1">if len(prompts) == 0 </span><span class="cov8" title="1">{
+                return model.Prompt{}, errors.New(ErrMsgNoPromptsFound)
+        }</span>
+
+        // Return pre-configured prompt or first prompt if not set
+        <span class="cov8" title="1">if m.SelectedPrompt.ID != "" </span><span class="cov8" title="1">{
+                return m.SelectedPrompt, nil
+        }</span>
+
+        // Default: return first prompt from the list
+        <span class="cov8" title="1">return prompts[0], nil</span>
+}
+
+// ShowConfirm implements TUIInterface.ShowConfirm for testing
+// It records the method call and returns pre-configured confirmation result
+// based on test scenarios.
+func (m *MockTUI) ShowConfirm(prompt model.Prompt) (bool, error) <span class="cov8" title="1">{
+        // Record method call for verification
+        m.CallHistory = append(m.CallHistory, MethodCall{
+                Method: "ShowConfirm",
+                Args:   prompt,
+        })
+        m.ShowConfirmArgs = append(m.ShowConfirmArgs, prompt)
+
+        // Simulate confirmation error scenario
+        if m.ShouldSimulateConfirmErr </span><span class="cov0" title="0">{
+                return false, errors.New(ErrMsgTUIRenderFailed)
+        }</span>
+
+        // Return pre-configured error if set
+        <span class="cov8" title="1">if m.ShowConfirmErr != nil </span><span class="cov0" title="0">{
+                return false, m.ShowConfirmErr
+        }</span>
+
+        // Return pre-configured confirmation result
+        <span class="cov8" title="1">return m.ConfirmResult, nil</span>
+}
+
+// Reset clears all recorded data and resets the mock to initial state
+// This is useful for cleaning up between test cases.
+func (m *MockTUI) Reset() <span class="cov8" title="1">{
+        m.SelectedPrompt = model.Prompt{}
+        m.ConfirmResult = false
+        m.ShowPromptListErr = nil
+        m.ShowConfirmErr = nil
+        m.CallHistory = make([]MethodCall, 0)
+        m.ShowPromptListArgs = make([][]model.Prompt, 0)
+        m.ShowConfirmArgs = make([]model.Prompt, 0)
+        m.ShouldSimulateUserCancel = false
+        m.ShouldSimulateSelectionErr = false
+        m.ShouldSimulateConfirmErr = false
+        m.SimulateSlowResponse = false
+}</span>
+
+// GetMethodCallCount returns the number of times a specific method was called
+func (m *MockTUI) GetMethodCallCount(methodName string) int <span class="cov8" title="1">{
+        count := 0
+        for _, call := range m.CallHistory </span><span class="cov8" title="1">{
+                if call.Method == methodName </span><span class="cov8" title="1">{
+                        count++
+                }</span>
+        }
+        <span class="cov8" title="1">return count</span>
+}
+
+// GetLastMethodCall returns the last recorded method call, or nil if no calls
+func (m *MockTUI) GetLastMethodCall() *MethodCall <span class="cov8" title="1">{
+        if len(m.CallHistory) == 0 </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+        <span class="cov8" title="1">return &amp;m.CallHistory[len(m.CallHistory)-1]</span>
+}
+
+// VerifyMethodCalled verifies that a specific method was called with expected arguments
+func (m *MockTUI) VerifyMethodCalled(methodName string, expectedArgs interface{}) bool <span class="cov8" title="1">{
+        for _, call := range m.CallHistory </span><span class="cov8" title="1">{
+                if call.Method == methodName </span><span class="cov8" title="1">{
+                        switch methodName </span>{
+                        case "ShowPromptList":<span class="cov0" title="0">
+                                if prompts, ok := call.Args.([]model.Prompt); ok </span><span class="cov0" title="0">{
+                                        if expected, ok := expectedArgs.([]model.Prompt); ok </span><span class="cov0" title="0">{
+                                                return comparePromptSlices(prompts, expected)
+                                        }</span>
+                                }
+                        case "ShowConfirm":<span class="cov8" title="1">
+                                if prompt, ok := call.Args.(model.Prompt); ok </span><span class="cov8" title="1">{
+                                        if expected, ok := expectedArgs.(model.Prompt); ok </span><span class="cov8" title="1">{
+                                                return prompt.ID == expected.ID
+                                        }</span>
+                                }
+                        }
+                }
+        }
+        <span class="cov0" title="0">return false</span>
+}
+
+// SetupInteractiveDeleteScenario configures the mock for interactive delete testing
+func (m *MockTUI) SetupInteractiveDeleteScenario(selectedPrompt model.Prompt, confirmResult bool) <span class="cov8" title="1">{
+        m.SelectedPrompt = selectedPrompt
+        m.ConfirmResult = confirmResult
+        m.ShowPromptListErr = nil
+        m.ShowConfirmErr = nil
+}</span>
+
+// SetupFilterDeleteScenario configures the mock for filtered delete testing
+func (m *MockTUI) SetupFilterDeleteScenario(selectedPrompt model.Prompt, confirmResult bool) <span class="cov0" title="0">{
+        m.SetupInteractiveDeleteScenario(selectedPrompt, confirmResult)
+}</span>
+
+// SetupDirectDeleteScenario configures the mock for direct URL delete testing
+func (m *MockTUI) SetupDirectDeleteScenario(confirmResult bool) <span class="cov8" title="1">{
+        m.ConfirmResult = confirmResult
+        m.ShowConfirmErr = nil
+}</span>
+
+// SetupErrorScenario configures the mock to simulate various error conditions
+func (m *MockTUI) SetupErrorScenario(errorType string) error <span class="cov8" title="1">{
+        switch errorType </span>{
+        case "user_cancel":<span class="cov8" title="1">
+                m.ShouldSimulateUserCancel = true</span>
+        case "selection_error":<span class="cov0" title="0">
+                m.ShouldSimulateSelectionErr = true</span>
+        case "confirm_error":<span class="cov0" title="0">
+                m.ShouldSimulateConfirmErr = true</span>
+        case "show_prompt_list_error":<span class="cov0" title="0">
+                m.ShowPromptListErr = errors.New("simulated prompt list error")</span>
+        case "show_confirm_error":<span class="cov0" title="0">
+                m.ShowConfirmErr = errors.New("simulated confirm error")</span>
+        default:<span class="cov8" title="1">
+                return fmt.Errorf("unknown error type: %s", errorType)</span>
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+// GetInteractionSummary returns a summary of all interactions for debugging
+func (m *MockTUI) GetInteractionSummary() string <span class="cov8" title="1">{
+        summary := fmt.Sprintf("MockTUI Interaction Summary:\n")
+        summary += fmt.Sprintf("- Total method calls: %d\n", len(m.CallHistory))
+        summary += fmt.Sprintf("- ShowPromptList calls: %d\n", m.GetMethodCallCount("ShowPromptList"))
+        summary += fmt.Sprintf("- ShowConfirm calls: %d\n", m.GetMethodCallCount("ShowConfirm"))
+        
+        if len(m.ShowPromptListArgs) &gt; 0 </span><span class="cov0" title="0">{
+                summary += fmt.Sprintf("- Last ShowPromptList args: %d prompts\n", len(m.ShowPromptListArgs[len(m.ShowPromptListArgs)-1]))
+        }</span>
+        
+        <span class="cov8" title="1">if len(m.ShowConfirmArgs) &gt; 0 </span><span class="cov8" title="1">{
+                lastConfirm := m.ShowConfirmArgs[len(m.ShowConfirmArgs)-1]
+                summary += fmt.Sprintf("- Last ShowConfirm args: prompt '%s'\n", lastConfirm.Name)
+        }</span>
+        
+        <span class="cov8" title="1">return summary</span>
+}
+
+// comparePromptSlices compares two prompt slices for equality
+func comparePromptSlices(a, b []model.Prompt) bool <span class="cov8" title="1">{
+        if len(a) != len(b) </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov8" title="1">for i := range a </span><span class="cov8" title="1">{
+                if a[i].ID != b[i].ID </span><span class="cov8" title="1">{
+                        return false
+                }</span>
+        }
+        <span class="cov8" title="1">return true</span>
+}</pre>
+		
+		<pre class="file" id="file5" style="display: none">package tui
+
+import (
+        "fmt"
+        "strings"
+
+        tea "github.com/charmbracelet/bubbletea"
+        "github.com/charmbracelet/lipgloss"
+        "github.com/grigri/pv/internal/model"
+)
+
+// PromptListModel represents the state of the prompt list TUI interface
+type PromptListModel struct {
+        prompts  []model.Prompt  // List of prompts to display
+        cursor   int             // Currently selected item index
+        selected *model.Prompt   // User-selected prompt
+        err      error           // Any error that occurred
+        mode     ListMode        // Display mode (ListAll or ListFiltered)
+        filter   string          // Filter keyword for ListFiltered mode
+        loading  bool            // Whether the list is currently loading
+        done     bool            // Whether user has made a selection or quit
+        quit     bool            // Whether user wants to quit without selection
+}
+
+// NewPromptListModel creates a new instance of PromptListModel
+func NewPromptListModel(prompts []model.Prompt, mode ListMode, filter string) PromptListModel <span class="cov8" title="1">{
+        return PromptListModel{
+                prompts:  prompts,
+                cursor:   0,
+                selected: nil,
+                err:      nil,
+                mode:     mode,
+                filter:   filter,
+                loading:  false,
+                done:     false,
+                quit:     false,
+        }
+}</span>
+
+// NewLoadingPromptListModel creates a new instance in loading state
+func NewLoadingPromptListModel() PromptListModel <span class="cov8" title="1">{
+        return PromptListModel{
+                prompts:  nil,
+                cursor:   0,
+                selected: nil,
+                err:      nil,
+                mode:     ListAll,
+                filter:   "",
+                loading:  true,
+                done:     false,
+                quit:     false,
+        }
+}</span>
+
+// promptsLoadedMsg is sent when prompts are loaded
+type promptsLoadedMsg struct {
+        prompts []model.Prompt
+        mode    ListMode
+        filter  string
+}
+
+// promptLoadErrorMsg is sent when there's an error loading prompts
+type promptLoadErrorMsg struct {
+        err error
+}
+
+// Init initializes the model and returns any initial commands
+func (m PromptListModel) Init() tea.Cmd <span class="cov8" title="1">{
+        return nil
+}</span>
+
+// Update handles messages and updates the model state
+func (m PromptListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) <span class="cov8" title="1">{
+        switch msg := msg.(type) </span>{
+        case tea.KeyMsg:<span class="cov8" title="1">
+                return m.handleKeyPress(msg)</span>
+        case promptsLoadedMsg:<span class="cov8" title="1">
+                return m.handlePromptsLoaded(msg), nil</span>
+        case promptLoadErrorMsg:<span class="cov8" title="1">
+                return m.handleLoadError(msg), nil</span>
+        case tea.WindowSizeMsg:<span class="cov8" title="1">
+                return m, nil</span>
+        }
+        <span class="cov0" title="0">return m, nil</span>
+}
+
+// handleKeyPress processes keyboard input
+func (m PromptListModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) <span class="cov8" title="1">{
+        // Don't process keys if loading
+        if m.loading </span><span class="cov8" title="1">{
+                return m, nil
+        }</span>
+
+        <span class="cov8" title="1">switch msg.String() </span>{
+        case KeyQuit, KeyCtrlC, KeyEscape:<span class="cov8" title="1">
+                m.quit = true
+                m.done = true
+                return m, tea.Quit</span>
+
+        case KeyUp:<span class="cov8" title="1">
+                if m.cursor &gt; 0 </span><span class="cov8" title="1">{
+                        m.cursor--
+                }</span>
+
+        case KeyDown:<span class="cov8" title="1">
+                if m.cursor &lt; len(m.prompts)-1 </span><span class="cov8" title="1">{
+                        m.cursor++
+                }</span>
+
+        case KeyHome:<span class="cov8" title="1">
+                m.cursor = 0</span>
+
+        case KeyEnd:<span class="cov8" title="1">
+                if len(m.prompts) &gt; 0 </span><span class="cov8" title="1">{
+                        m.cursor = len(m.prompts) - 1
+                }</span>
+
+        case KeyPageUp:<span class="cov8" title="1">
+                m.cursor = max(0, m.cursor-10)</span>
+
+        case KeyPageDown:<span class="cov8" title="1">
+                m.cursor = min(len(m.prompts)-1, m.cursor+10)</span>
+
+        case KeyEnter:<span class="cov8" title="1">
+                if len(m.prompts) &gt; 0 &amp;&amp; m.cursor &gt;= 0 &amp;&amp; m.cursor &lt; len(m.prompts) </span><span class="cov8" title="1">{
+                        m.selected = &amp;m.prompts[m.cursor]
+                        m.done = true
+                        return m, tea.Quit
+                }</span>
+        }
+
+        <span class="cov8" title="1">return m, nil</span>
+}
+
+// handlePromptsLoaded processes the prompts loaded message
+func (m PromptListModel) handlePromptsLoaded(msg promptsLoadedMsg) PromptListModel <span class="cov8" title="1">{
+        m.prompts = msg.prompts
+        m.mode = msg.mode
+        m.filter = msg.filter
+        m.loading = false
+        m.cursor = 0
+        return m
+}</span>
+
+// handleLoadError processes the load error message
+func (m PromptListModel) handleLoadError(msg promptLoadErrorMsg) PromptListModel <span class="cov8" title="1">{
+        m.err = msg.err
+        m.loading = false
+        return m
+}</span>
+
+// View renders the current state of the model
+func (m PromptListModel) View() string <span class="cov8" title="1">{
+        if m.loading </span><span class="cov8" title="1">{
+                return m.renderLoadingView()
+        }</span>
+
+        <span class="cov8" title="1">if m.err != nil </span><span class="cov8" title="1">{
+                return m.renderErrorView()
+        }</span>
+
+        <span class="cov8" title="1">if len(m.prompts) == 0 </span><span class="cov8" title="1">{
+                return m.renderEmptyView()
+        }</span>
+
+        <span class="cov8" title="1">return m.renderListView()</span>
+}
+
+// renderLoadingView renders the loading state
+func (m PromptListModel) renderLoadingView() string <span class="cov8" title="1">{
+        style := lipgloss.NewStyle().
+                Border(lipgloss.RoundedBorder()).
+                BorderForeground(lipgloss.Color(ColorBorder)).
+                Padding(1, 2).
+                Width(MinScreenWidth).
+                Align(lipgloss.Center)
+
+        content := fmt.Sprintf("🔄 %s", HelpTextLoading)
+        return style.Render(content)
+}</span>
+
+// renderErrorView renders the error state
+func (m PromptListModel) renderErrorView() string <span class="cov8" title="1">{
+        style := lipgloss.NewStyle().
+                Border(lipgloss.RoundedBorder()).
+                BorderForeground(lipgloss.Color(ColorError)).
+                Padding(1, 2).
+                Width(MinScreenWidth)
+
+        title := lipgloss.NewStyle().
+                Foreground(lipgloss.Color(ColorError)).
+                Bold(true).
+                Render("❌ 加载失败")
+
+        content := fmt.Sprintf("%s\n\n%s\n\n%s", 
+                title, 
+                m.err.Error(),
+                HelpTextGeneral)
+
+        return style.Render(content)
+}</span>
+
+// renderEmptyView renders the empty list state
+func (m PromptListModel) renderEmptyView() string <span class="cov8" title="1">{
+        style := lipgloss.NewStyle().
+                Border(lipgloss.RoundedBorder()).
+                BorderForeground(lipgloss.Color(ColorBorder)).
+                Padding(1, 2).
+                Width(MinScreenWidth).
+                Align(lipgloss.Center)
+
+        var message string
+        if m.mode == ListFiltered </span><span class="cov8" title="1">{
+                message = fmt.Sprintf("🔍 没有找到包含 \"%s\" 的提示", m.filter)
+        }</span> else<span class="cov8" title="1"> {
+                message = fmt.Sprintf("📝 %s", ErrMsgListEmpty)
+        }</span>
+
+        <span class="cov8" title="1">content := fmt.Sprintf("%s\n\n%s", message, HelpTextGeneral)
+        return style.Render(content)</span>
+}
+
+// renderListView renders the main prompt list
+func (m PromptListModel) renderListView() string <span class="cov8" title="1">{
+        // Header
+        var title string
+        if m.mode == ListFiltered </span><span class="cov0" title="0">{
+                title = fmt.Sprintf("🗑️  Prompt Vault - 筛选结果 \"%s\"", m.filter)
+        }</span> else<span class="cov8" title="1"> {
+                title = "🗑️  Prompt Vault - 选择要删除的提示"
+        }</span>
+
+        <span class="cov8" title="1">headerStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color(ColorPrimary)).
+                Bold(true).
+                Padding(0, 1)
+
+        header := headerStyle.Render(title)
+
+        // List items
+        var items []string
+        for i, prompt := range m.prompts </span><span class="cov8" title="1">{
+                item := m.renderListItem(i, prompt, i == m.cursor)
+                items = append(items, item)
+        }</span>
+
+        <span class="cov8" title="1">listContent := strings.Join(items, "\n")
+
+        // Footer with help text
+        footerStyle := lipgloss.NewStyle().
+                Foreground(lipgloss.Color(ColorMuted)).
+                Padding(1, 1)
+
+        footer := footerStyle.Render(HelpTextListNavigation)
+
+        // Main container
+        containerStyle := lipgloss.NewStyle().
+                Border(lipgloss.RoundedBorder()).
+                BorderForeground(lipgloss.Color(ColorBorder)).
+                Padding(1, 1).
+                Width(MinScreenWidth)
+
+        content := fmt.Sprintf("%s\n\n%s\n\n%s", header, listContent, footer)
+        return containerStyle.Render(content)</span>
+}
+
+// renderListItem renders a single prompt item in the list
+func (m PromptListModel) renderListItem(index int, prompt model.Prompt, selected bool) string <span class="cov8" title="1">{
+        // Format: [数字] 提示名称 (作者: 作者名)
+        number := fmt.Sprintf("[%d]", index+1)
+        
+        // Truncate name if too long
+        name := prompt.Name
+        if len(name) &gt; MaxPromptNameLength </span><span class="cov8" title="1">{
+                name = name[:MaxPromptNameLength-3] + "..."
+        }</span>
+
+        // Truncate author if too long
+        <span class="cov8" title="1">author := prompt.Author
+        if len(author) &gt; MaxAuthorNameLength </span><span class="cov8" title="1">{
+                author = author[:MaxAuthorNameLength-3] + "..."
+        }</span>
+
+        <span class="cov8" title="1">itemText := fmt.Sprintf("%s %s (作者: %s)", number, name, author)
+
+        if selected </span><span class="cov8" title="1">{
+                // Selected item style
+                style := lipgloss.NewStyle().
+                        Foreground(lipgloss.Color(ColorText)).
+                        Background(lipgloss.Color(ColorPrimary)).
+                        Bold(true).
+                        Padding(0, 1)
+                return "  &gt; " + style.Render(itemText)
+        }</span> else<span class="cov8" title="1"> {
+                // Normal item style
+                style := lipgloss.NewStyle().
+                        Foreground(lipgloss.Color(ColorText)).
+                        Padding(0, 1)
+                return "    " + style.Render(itemText)
+        }</span>
+}
+
+// GetSelected returns the selected prompt if any
+func (m PromptListModel) GetSelected() *model.Prompt <span class="cov8" title="1">{
+        return m.selected
+}</span>
+
+// IsDone returns true if the user has made a selection or quit
+func (m PromptListModel) IsDone() bool <span class="cov8" title="1">{
+        return m.done
+}</span>
+
+// HasQuit returns true if the user quit without making a selection
+func (m PromptListModel) HasQuit() bool <span class="cov8" title="1">{
+        return m.quit
+}</span>
+
+// GetError returns any error that occurred
+func (m PromptListModel) GetError() error <span class="cov8" title="1">{
+        return m.err
+}</span>
+
+// SetPrompts updates the prompts list (useful for dynamic loading)
+func (m *PromptListModel) SetPrompts(prompts []model.Prompt, mode ListMode, filter string) tea.Cmd <span class="cov8" title="1">{
+        return func() tea.Msg </span><span class="cov8" title="1">{
+                return promptsLoadedMsg{
+                        prompts: prompts,
+                        mode:    mode,
+                        filter:  filter,
+                }
+        }</span>
+}
+
+// SetError sets an error state
+func (m *PromptListModel) SetError(err error) tea.Cmd <span class="cov8" title="1">{
+        return func() tea.Msg </span><span class="cov8" title="1">{
+                return promptLoadErrorMsg{err: err}
+        }</span>
+}
+
+// Helper functions
+func max(a, b int) int <span class="cov8" title="1">{
+        if a &gt; b </span><span class="cov8" title="1">{
+                return a
+        }</span>
+        <span class="cov0" title="0">return b</span>
+}
+
+func min(a, b int) int <span class="cov8" title="1">{
+        if a &lt; b </span><span class="cov8" title="1">{
+                return a
+        }</span>
+        <span class="cov0" title="0">return b</span>
+}</pre>
+		
+		<pre class="file" id="file6" style="display: none">package tui
+
+import (
+        "fmt"
+        "math/rand"
+        "time"
+
+        "github.com/grigri/pv/internal/model"
+)
+
+// TestPromptGenerator provides utilities for generating test prompt data
+// with consistent and predictable data for testing scenarios.
+type TestPromptGenerator struct {
+        counter int
+        baseURL string
+}
+
+// NewTestPromptGenerator creates a new test prompt data generator
+func NewTestPromptGenerator() *TestPromptGenerator <span class="cov8" title="1">{
+        return &amp;TestPromptGenerator{
+                counter: 0,
+                baseURL: "https://gist.github.com/testuser",
+        }
+}</span>
+
+// GeneratePrompt creates a single test prompt with predictable data
+func (g *TestPromptGenerator) GeneratePrompt() model.Prompt <span class="cov8" title="1">{
+        g.counter++
+        return model.Prompt{
+                ID:          fmt.Sprintf("test-prompt-%d", g.counter),
+                Name:        fmt.Sprintf("Test Prompt %d", g.counter),
+                Author:      fmt.Sprintf("testuser%d", g.counter%3+1), // Cycle through 3 test users
+                GistURL:     fmt.Sprintf("%s/%s", g.baseURL, fmt.Sprintf("abc123%d", g.counter)),
+                Description: fmt.Sprintf("This is a test prompt number %d for testing purposes", g.counter),
+                Tags:        []string{"test", "automation", fmt.Sprintf("category%d", g.counter%5+1)},
+                Version:     "1.0.0",
+                Content:     fmt.Sprintf("Test prompt content for prompt %d\nThis content is used for testing.", g.counter),
+        }
+}</span>
+
+// GeneratePrompts creates a slice of test prompts
+func (g *TestPromptGenerator) GeneratePrompts(count int) []model.Prompt <span class="cov8" title="1">{
+        prompts := make([]model.Prompt, count)
+        for i := 0; i &lt; count; i++ </span><span class="cov8" title="1">{
+                prompts[i] = g.GeneratePrompt()
+        }</span>
+        <span class="cov8" title="1">return prompts</span>
+}
+
+// GeneratePromptsWithPattern creates prompts that match a specific pattern
+// This is useful for testing keyword filtering functionality
+func (g *TestPromptGenerator) GeneratePromptsWithPattern(count int, keyword string) []model.Prompt <span class="cov8" title="1">{
+        prompts := make([]model.Prompt, count)
+        for i := 0; i &lt; count; i++ </span><span class="cov8" title="1">{
+                prompt := g.GeneratePrompt()
+                // Ensure the keyword appears in name, author, or description
+                switch i % 3 </span>{
+                case 0:<span class="cov8" title="1">
+                        prompt.Name = fmt.Sprintf("%s %s", keyword, prompt.Name)</span>
+                case 1:<span class="cov8" title="1">
+                        prompt.Author = fmt.Sprintf("%s_%s", keyword, prompt.Author)</span>
+                case 2:<span class="cov8" title="1">
+                        prompt.Description = fmt.Sprintf("Contains %s keyword. %s", keyword, prompt.Description)</span>
+                }
+                <span class="cov8" title="1">prompts[i] = prompt</span>
+        }
+        <span class="cov8" title="1">return prompts</span>
+}
+
+// GenerateEmptyPromptList returns an empty prompt slice for testing empty list scenarios
+func (g *TestPromptGenerator) GenerateEmptyPromptList() []model.Prompt <span class="cov8" title="1">{
+        return []model.Prompt{}
+}</span>
+
+// GeneratePromptWithSpecificData creates a prompt with specific field values for targeted testing
+func (g *TestPromptGenerator) GeneratePromptWithSpecificData(id, name, author, gistURL string) model.Prompt <span class="cov8" title="1">{
+        return model.Prompt{
+                ID:          id,
+                Name:        name,
+                Author:      author,
+                GistURL:     gistURL,
+                Description: fmt.Sprintf("Test prompt for %s by %s", name, author),
+                Tags:        []string{"test", "specific"},
+                Version:     "1.0.0",
+                Content:     fmt.Sprintf("Specific test content for %s", name),
+        }
+}</span>
+
+// GenerateRandomPrompt creates a prompt with randomized data for stress testing
+func (g *TestPromptGenerator) GenerateRandomPrompt() model.Prompt <span class="cov8" title="1">{
+        rand.Seed(time.Now().UnixNano())
+        
+        names := []string{"AI Assistant", "Code Review", "SQL Helper", "Documentation", "Bug Fix", "Feature Plan"}
+        authors := []string{"developer1", "coder2", "engineer3", "architect4", "specialist5"}
+        
+        g.counter++
+        return model.Prompt{
+                ID:          fmt.Sprintf("random-%d-%d", g.counter, rand.Int31()),
+                Name:        names[rand.Intn(len(names))] + fmt.Sprintf(" %d", rand.Intn(100)),
+                Author:      authors[rand.Intn(len(authors))],
+                GistURL:     fmt.Sprintf("https://gist.github.com/%s/%x", authors[rand.Intn(len(authors))], rand.Int31()),
+                Description: fmt.Sprintf("Random test prompt %d with generated content", g.counter),
+                Tags:        []string{fmt.Sprintf("tag%d", rand.Intn(10)), "random", "test"},
+                Version:     fmt.Sprintf("1.%d.%d", rand.Intn(10), rand.Intn(10)),
+                Content:     fmt.Sprintf("Random content %d for testing purposes", rand.Int31()),
+        }
+}</span>
+
+// TUIStateValidator provides utilities for validating TUI component states
+// and behaviors in test scenarios.
+type TUIStateValidator struct {
+        mockTUI *MockTUI
+}
+
+// NewTUIStateValidator creates a new TUI state validator
+func NewTUIStateValidator(mockTUI *MockTUI) *TUIStateValidator <span class="cov8" title="1">{
+        return &amp;TUIStateValidator{
+                mockTUI: mockTUI,
+        }
+}</span>
+
+// ValidatePromptListCalled verifies that ShowPromptList was called with expected prompts
+func (v *TUIStateValidator) ValidatePromptListCalled(expectedPrompts []model.Prompt) bool <span class="cov8" title="1">{
+        if len(v.mockTUI.ShowPromptListArgs) == 0 </span><span class="cov0" title="0">{
+                return false
+        }</span>
+        
+        <span class="cov8" title="1">lastCall := v.mockTUI.ShowPromptListArgs[len(v.mockTUI.ShowPromptListArgs)-1]
+        return comparePromptSlices(lastCall, expectedPrompts)</span>
+}
+
+// ValidateConfirmCalled verifies that ShowConfirm was called with expected prompt
+func (v *TUIStateValidator) ValidateConfirmCalled(expectedPrompt model.Prompt) bool <span class="cov8" title="1">{
+        if len(v.mockTUI.ShowConfirmArgs) == 0 </span><span class="cov0" title="0">{
+                return false
+        }</span>
+        
+        <span class="cov8" title="1">lastCall := v.mockTUI.ShowConfirmArgs[len(v.mockTUI.ShowConfirmArgs)-1]
+        return lastCall.ID == expectedPrompt.ID</span>
+}
+
+// ValidateMethodCallSequence verifies that methods were called in the expected order
+func (v *TUIStateValidator) ValidateMethodCallSequence(expectedSequence []string) bool <span class="cov8" title="1">{
+        if len(v.mockTUI.CallHistory) &lt; len(expectedSequence) </span><span class="cov0" title="0">{
+                return false
+        }</span>
+        
+        // Check the last N calls match the expected sequence
+        <span class="cov8" title="1">startIndex := len(v.mockTUI.CallHistory) - len(expectedSequence)
+        for i, expectedMethod := range expectedSequence </span><span class="cov8" title="1">{
+                if v.mockTUI.CallHistory[startIndex+i].Method != expectedMethod </span><span class="cov0" title="0">{
+                        return false
+                }</span>
+        }
+        
+        <span class="cov8" title="1">return true</span>
+}
+
+// ValidateNoMethodCalls verifies that no TUI methods were called
+func (v *TUIStateValidator) ValidateNoMethodCalls() bool <span class="cov8" title="1">{
+        return len(v.mockTUI.CallHistory) == 0
+}</span>
+
+// ValidateMethodCallCount verifies that a specific method was called exactly N times
+func (v *TUIStateValidator) ValidateMethodCallCount(methodName string, expectedCount int) bool <span class="cov8" title="1">{
+        return v.mockTUI.GetMethodCallCount(methodName) == expectedCount
+}</span>
+
+// ErrorScenarioSimulator provides utilities for simulating various error conditions
+// in TUI interactions to test error handling and recovery mechanisms.
+type ErrorScenarioSimulator struct {
+        mockTUI *MockTUI
+}
+
+// NewErrorScenarioSimulator creates a new error scenario simulator
+func NewErrorScenarioSimulator(mockTUI *MockTUI) *ErrorScenarioSimulator <span class="cov8" title="1">{
+        return &amp;ErrorScenarioSimulator{
+                mockTUI: mockTUI,
+        }
+}</span>
+
+// SimulateUserCancellation configures the mock to simulate user canceling the operation
+func (s *ErrorScenarioSimulator) SimulateUserCancellation() <span class="cov8" title="1">{
+        s.mockTUI.ShouldSimulateUserCancel = true
+}</span>
+
+// SimulateSelectionError configures the mock to simulate an invalid selection error
+func (s *ErrorScenarioSimulator) SimulateSelectionError() <span class="cov8" title="1">{
+        s.mockTUI.ShouldSimulateSelectionErr = true
+}</span>
+
+// SimulateConfirmationError configures the mock to simulate an error during confirmation
+func (s *ErrorScenarioSimulator) SimulateConfirmationError() <span class="cov8" title="1">{
+        s.mockTUI.ShouldSimulateConfirmErr = true
+}</span>
+
+// SimulatePromptListError configures the mock to return an error when showing prompt list
+func (s *ErrorScenarioSimulator) SimulatePromptListError(errorMsg string) <span class="cov8" title="1">{
+        s.mockTUI.ShowPromptListErr = fmt.Errorf("%s", errorMsg)
+}</span>
+
+// SimulateConfirmError configures the mock to return an error during confirmation
+func (s *ErrorScenarioSimulator) SimulateConfirmError(errorMsg string) <span class="cov8" title="1">{
+        s.mockTUI.ShowConfirmErr = fmt.Errorf("%s", errorMsg)
+}</span>
+
+// SimulateEmptyPromptList tests behavior with empty prompt lists
+func (s *ErrorScenarioSimulator) SimulateEmptyPromptList() []model.Prompt <span class="cov8" title="1">{
+        return []model.Prompt{}
+}</span>
+
+// SimulateNetworkTimeout simulates network-related delays and timeouts
+func (s *ErrorScenarioSimulator) SimulateNetworkTimeout() <span class="cov8" title="1">{
+        s.mockTUI.SimulateSlowResponse = true
+        // In a real implementation, this might introduce delays
+}</span>
+
+// TestScenarioBuilder provides a fluent interface for building complex test scenarios
+type TestScenarioBuilder struct {
+        mockTUI   *MockTUI
+        generator *TestPromptGenerator
+        validator *TUIStateValidator
+        simulator *ErrorScenarioSimulator
+}
+
+// NewTestScenarioBuilder creates a new test scenario builder
+func NewTestScenarioBuilder() *TestScenarioBuilder <span class="cov8" title="1">{
+        mockTUI := NewMockTUI()
+        return &amp;TestScenarioBuilder{
+                mockTUI:   mockTUI,
+                generator: NewTestPromptGenerator(),
+                validator: NewTUIStateValidator(mockTUI),
+                simulator: NewErrorScenarioSimulator(mockTUI),
+        }
+}</span>
+
+// GetMockTUI returns the mock TUI instance
+func (b *TestScenarioBuilder) GetMockTUI() *MockTUI <span class="cov8" title="1">{
+        return b.mockTUI
+}</span>
+
+// GetGenerator returns the prompt generator
+func (b *TestScenarioBuilder) GetGenerator() *TestPromptGenerator <span class="cov8" title="1">{
+        return b.generator
+}</span>
+
+// GetValidator returns the state validator
+func (b *TestScenarioBuilder) GetValidator() *TUIStateValidator <span class="cov8" title="1">{
+        return b.validator
+}</span>
+
+// GetSimulator returns the error scenario simulator
+func (b *TestScenarioBuilder) GetSimulator() *ErrorScenarioSimulator <span class="cov8" title="1">{
+        return b.simulator
+}</span>
+
+// WithPromptSelection configures the mock to return a specific prompt selection
+func (b *TestScenarioBuilder) WithPromptSelection(prompt model.Prompt) *TestScenarioBuilder <span class="cov8" title="1">{
+        b.mockTUI.SelectedPrompt = prompt
+        return b
+}</span>
+
+// WithConfirmResult configures the mock to return a specific confirmation result
+func (b *TestScenarioBuilder) WithConfirmResult(confirmed bool) *TestScenarioBuilder <span class="cov8" title="1">{
+        b.mockTUI.ConfirmResult = confirmed
+        return b
+}</span>
+
+// WithUserCancellation configures the mock to simulate user cancellation
+func (b *TestScenarioBuilder) WithUserCancellation() *TestScenarioBuilder <span class="cov8" title="1">{
+        b.simulator.SimulateUserCancellation()
+        return b
+}</span>
+
+// WithSelectionError configures the mock to simulate selection errors
+func (b *TestScenarioBuilder) WithSelectionError() *TestScenarioBuilder <span class="cov0" title="0">{
+        b.simulator.SimulateSelectionError()
+        return b
+}</span>
+
+// WithConfirmationError configures the mock to simulate confirmation errors
+func (b *TestScenarioBuilder) WithConfirmationError() *TestScenarioBuilder <span class="cov0" title="0">{
+        b.simulator.SimulateConfirmationError()
+        return b
+}</span>
+
+// Reset resets the builder to initial state
+func (b *TestScenarioBuilder) Reset() *TestScenarioBuilder <span class="cov8" title="1">{
+        b.mockTUI.Reset()
+        return b
+}</span>
+
+// Build finalizes the test scenario and returns the configured components
+func (b *TestScenarioBuilder) Build() (*MockTUI, *TUIStateValidator) <span class="cov8" title="1">{
+        return b.mockTUI, b.validator
+}</span>
+
+// Common test data constants for consistent testing
+const (
+        TestPromptID1     = "test-prompt-1"
+        TestPromptID2     = "test-prompt-2"
+        TestPromptName1   = "Test AI Assistant"
+        TestPromptName2   = "Test Code Review"
+        TestAuthor1       = "testuser1"
+        TestAuthor2       = "testuser2"
+        TestGistURL1      = "https://gist.github.com/testuser1/abc123"
+        TestGistURL2      = "https://gist.github.com/testuser2/def456"
+        TestKeyword       = "golang"
+        TestDescription1  = "Test prompt for AI assistance"
+        TestDescription2  = "Test prompt for code review"
+)
+
+// CreateStandardTestPrompts creates a standard set of test prompts for consistent testing
+func CreateStandardTestPrompts() []model.Prompt <span class="cov8" title="1">{
+        return []model.Prompt{
+                {
+                        ID:          TestPromptID1,
+                        Name:        TestPromptName1,
+                        Author:      TestAuthor1,
+                        GistURL:     TestGistURL1,
+                        Description: TestDescription1,
+                        Tags:        []string{"test", "ai", "assistant"},
+                        Version:     "1.0.0",
+                        Content:     "Test content for AI assistant prompt",
+                },
+                {
+                        ID:          TestPromptID2,
+                        Name:        TestPromptName2,
+                        Author:      TestAuthor2,
+                        GistURL:     TestGistURL2,
+                        Description: TestDescription2,
+                        Tags:        []string{"test", "code", "review"},
+                        Version:     "1.0.0",
+                        Content:     "Test content for code review prompt",
+                },
+        }
+}</span>
+
+// CreateEmptyTestPrompts returns an empty prompt list for testing edge cases
+func CreateEmptyTestPrompts() []model.Prompt <span class="cov8" title="1">{
+        return []model.Prompt{}
+}</span>
+
+// CreateSingleTestPrompt creates a single test prompt for simple test scenarios
+func CreateSingleTestPrompt() model.Prompt <span class="cov8" title="1">{
+        return model.Prompt{
+                ID:          TestPromptID1,
+                Name:        TestPromptName1,
+                Author:      TestAuthor1,
+                GistURL:     TestGistURL1,
+                Description: TestDescription1,
+                Tags:        []string{"test", "single"},
+                Version:     "1.0.0",
+                Content:     "Single test prompt content",
+        }
+}</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

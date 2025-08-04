@@ -3,21 +3,35 @@ package service
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/grigri/pv/internal/errors"
+	"github.com/grigri/pv/internal/infra"
 	"github.com/grigri/pv/internal/model"
 	"github.com/grigri/pv/internal/validator"
 )
 
 // MockStore is a mock implementation of infra.Store for testing
 type MockStore struct {
-	addError error
-	addFunc  func(model.Prompt) error
-	prompts  []model.Prompt
+	addError    error
+	addFunc     func(model.Prompt) error
+	deleteError error
+	deleteFunc  func(string) error
+	getError    error
+	getFunc     func(string) ([]model.Prompt, error)
+	listError   error
+	listFunc    func() ([]model.Prompt, error)
+	prompts     []model.Prompt
 }
 
 func (m *MockStore) List() ([]model.Prompt, error) {
+	if m.listError != nil {
+		return nil, m.listError
+	}
+	if m.listFunc != nil {
+		return m.listFunc()
+	}
 	return m.prompts, nil
 }
 
@@ -33,6 +47,19 @@ func (m *MockStore) Add(prompt model.Prompt) error {
 }
 
 func (m *MockStore) Delete(keyword string) error {
+	if m.deleteError != nil {
+		return m.deleteError
+	}
+	if m.deleteFunc != nil {
+		return m.deleteFunc(keyword)
+	}
+	// Remove from prompts slice for realistic behavior
+	for i, prompt := range m.prompts {
+		if prompt.ID == keyword {
+			m.prompts = append(m.prompts[:i], m.prompts[i+1:]...)
+			return nil
+		}
+	}
 	return nil
 }
 
@@ -41,7 +68,23 @@ func (m *MockStore) Update(prompt model.Prompt) error {
 }
 
 func (m *MockStore) Get(keyword string) ([]model.Prompt, error) {
-	return nil, nil
+	if m.getError != nil {
+		return nil, m.getError
+	}
+	if m.getFunc != nil {
+		return m.getFunc(keyword)
+	}
+	// Return matching prompts for realistic behavior
+	var matches []model.Prompt
+	for _, prompt := range m.prompts {
+		if strings.Contains(strings.ToLower(prompt.Name), strings.ToLower(keyword)) ||
+			strings.Contains(strings.ToLower(prompt.Author), strings.ToLower(keyword)) ||
+			strings.Contains(strings.ToLower(prompt.Description), strings.ToLower(keyword)) ||
+			prompt.ID == keyword {
+			matches = append(matches, prompt)
+		}
+	}
+	return matches, nil
 }
 
 // MockYAMLValidator is a mock implementation of validator.YAMLValidator for testing
@@ -516,6 +559,642 @@ Content with special characters: àáâãäå æçèéêë ìíîï ñòóôõö
 			service := NewPromptService(mockStore, tc.validator)
 
 			_, err = service.AddFromFile(testFile)
+
+			if tc.expectError && err == nil {
+				t.Errorf("Expected error but got none")
+			} else if !tc.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// Test data helpers for delete method tests
+func createTestPrompts() []model.Prompt {
+	return []model.Prompt{
+		{
+			ID:          "gist1234567890",
+			Name:        "Go Code Review",
+			Author:      "John Doe",
+			Description: "A comprehensive guide for Go code review",
+			Tags:        []string{"go", "review", "best-practice"},
+			Version:     "1.0",
+			Content:     "Go code review guidelines...",
+			GistURL:     "https://gist.github.com/johndoe/gist1234567890",
+		},
+		{
+			ID:          "gist4567890123",
+			Name:        "SQL Query Optimizer",
+			Author:      "Jane Smith",
+			Description: "Tips for optimizing SQL queries",
+			Tags:        []string{"sql", "performance"},
+			Version:     "2.1",
+			Content:     "SQL optimization techniques...",
+			GistURL:     "https://gist.github.com/janesmith/gist4567890123",
+		},
+		{
+			ID:          "gist7890123456",
+			Name:        "Docker Best Practices",
+			Author:      "John Doe",
+			Description: "Best practices for Docker containerization",
+			Tags:        []string{"docker", "containers"},
+			Version:     "1.5",
+			Content:     "Docker containerization guidelines...",
+			GistURL:     "https://gist.github.com/johndoe/gist7890123456",
+		},
+	}
+}
+
+func TestPromptService_DeleteByKeyword(t *testing.T) {
+	testPrompts := createTestPrompts()
+
+	testCases := []struct {
+		name              string
+		keyword           string
+		mockStore         *MockStore
+		expectError       bool
+		expectedErrorType errors.ErrorType
+		expectedMessage   string
+	}{
+		{
+			name:    "successful delete with single match",
+			keyword: "SQL Query Optimizer",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError: false,
+		},
+		{
+			name:    "successful delete with multiple matches",
+			keyword: "John Doe",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError: false,
+		},
+		{
+			name:    "empty keyword",
+			keyword: "",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrValidation,
+		},
+		{
+			name:    "whitespace only keyword",
+			keyword: "   ",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrValidation,
+		},
+		{
+			name:    "no matching prompts",
+			keyword: "nonexistent",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError: true,
+		},
+		{
+			name:    "store Get failure",
+			keyword: "test",
+			mockStore: &MockStore{
+				prompts:  testPrompts,
+				getError: errors.NewAppError(errors.ErrStorage, "database connection failed", nil),
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrStorage,
+		},
+		{
+			name:    "store Delete failure",
+			keyword: "Go Code Review",
+			mockStore: &MockStore{
+				getFunc: func(keyword string) ([]model.Prompt, error) {
+					// Return the matching prompt for Get, then fail on Delete
+					prompts := createTestPrompts()
+					for _, prompt := range prompts {
+						if strings.Contains(strings.ToLower(prompt.Name), strings.ToLower(keyword)) {
+							return []model.Prompt{prompt}, nil
+						}
+					}
+					return []model.Prompt{}, nil
+				},
+				deleteFunc: func(id string) error {
+					// Simulate permission denied when trying to delete
+					return errors.NewAppError(errors.ErrAuth, "permission denied", nil)
+				},
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrStorage,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockValidator := &MockYAMLValidator{}
+			service := NewPromptService(tc.mockStore, mockValidator)
+
+			err := service.DeleteByKeyword(tc.keyword)
+
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+					return
+				}
+
+				if tc.expectedErrorType != errors.ErrUnknown {
+					appErr, ok := err.(errors.AppError)
+					if !ok {
+						t.Errorf("Expected AppError, got %T: %v", err, err)
+					} else if appErr.Type != tc.expectedErrorType {
+						t.Errorf("Expected error type %v, got %v", tc.expectedErrorType, appErr.Type)
+					}
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+					return
+				}
+			}
+		})
+	}
+}
+
+func TestPromptService_DeleteByURL(t *testing.T) {
+	testPrompts := createTestPrompts()
+
+	testCases := []struct {
+		name              string
+		gistURL           string
+		mockStore         *MockStore
+		expectError       bool
+		expectedErrorType errors.ErrorType
+	}{
+		{
+			name:    "successful delete with valid URL",
+			gistURL: "https://gist.github.com/johndoe/gist1234567890",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError: false,
+		},
+		{
+			name:    "empty URL",
+			gistURL: "",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrValidation,
+		},
+		{
+			name:    "invalid URL format - not a GitHub URL",
+			gistURL: "https://gitlab.com/user/repo",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrValidation,
+		},
+		{
+			name:    "invalid URL format - malformed URL",
+			gistURL: "not-a-url",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrValidation,
+		},
+		{
+			name:    "invalid Gist ID format - too short",
+			gistURL: "https://gist.github.com/user/abc123",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrValidation,
+		},
+		{
+			name:    "prompt not found for valid URL",
+			gistURL: "https://gist.github.com/user/nonexistent123456",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError: true,
+		},
+		{
+			name:    "store Get failure",
+			gistURL: "https://gist.github.com/johndoe/gist1234567890",
+			mockStore: &MockStore{
+				prompts:  testPrompts,
+				getError: errors.NewAppError(errors.ErrStorage, "network error", nil),
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrStorage,
+		},
+		{
+			name:    "store Delete failure",
+			gistURL: "https://gist.github.com/johndoe/gist1234567890",
+			mockStore: &MockStore{
+				getFunc: func(keyword string) ([]model.Prompt, error) {
+					// Return the matching prompt for Get, then fail on Delete
+					prompts := createTestPrompts()
+					for _, prompt := range prompts {
+						if prompt.ID == keyword {
+							return []model.Prompt{prompt}, nil
+						}
+					}
+					return []model.Prompt{}, nil
+				},
+				deleteFunc: func(id string) error {
+					return errors.NewAppError(errors.ErrAuth, "github permission error", nil)
+				},
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrStorage,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockValidator := &MockYAMLValidator{}
+			service := NewPromptService(tc.mockStore, mockValidator)
+
+			err := service.DeleteByURL(tc.gistURL)
+
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+					return
+				}
+
+				if tc.expectedErrorType != errors.ErrUnknown {
+					appErr, ok := err.(errors.AppError)
+					if !ok {
+						t.Errorf("Expected AppError, got %T: %v", err, err)
+					} else if appErr.Type != tc.expectedErrorType {
+						t.Errorf("Expected error type %v, got %v", tc.expectedErrorType, appErr.Type)
+					}
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+					return
+				}
+			}
+		})
+	}
+}
+
+func TestPromptService_ListForDeletion(t *testing.T) {
+	testPrompts := createTestPrompts()
+
+	testCases := []struct {
+		name              string
+		mockStore         *MockStore
+		expectError       bool
+		expectedErrorType errors.ErrorType
+		expectedCount     int
+	}{
+		{
+			name: "successful list with prompts",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:   false,
+			expectedCount: 3,
+		},
+		{
+			name: "empty prompt list",
+			mockStore: &MockStore{
+				prompts: []model.Prompt{},
+			},
+			expectError:   false,
+			expectedCount: 0,
+		},
+		{
+			name: "no index error",
+			mockStore: &MockStore{
+				listError: infra.ErrNoIndex,
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrValidation,
+		},
+		{
+			name: "empty index error",
+			mockStore: &MockStore{
+				listError: infra.ErrEmptyIndex,
+			},
+			expectError: true,
+		},
+		{
+			name: "store list failure",
+			mockStore: &MockStore{
+				listError: errors.NewAppError(errors.ErrStorage, "database error", nil),
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrStorage,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockValidator := &MockYAMLValidator{}
+			service := NewPromptService(tc.mockStore, mockValidator)
+
+			prompts, err := service.ListForDeletion()
+
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+					return
+				}
+
+				if tc.expectedErrorType != errors.ErrUnknown {
+					appErr, ok := err.(errors.AppError)
+					if !ok {
+						t.Errorf("Expected AppError, got %T: %v", err, err)
+					} else if appErr.Type != tc.expectedErrorType {
+						t.Errorf("Expected error type %v, got %v", tc.expectedErrorType, appErr.Type)
+					}
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+					return
+				}
+
+				if len(prompts) != tc.expectedCount {
+					t.Errorf("Expected %d prompts, got %d", tc.expectedCount, len(prompts))
+				}
+			}
+		})
+	}
+}
+
+func TestPromptService_FilterForDeletion(t *testing.T) {
+	testPrompts := createTestPrompts()
+
+	testCases := []struct {
+		name              string
+		keyword           string
+		mockStore         *MockStore
+		expectError       bool
+		expectedErrorType errors.ErrorType
+		expectedCount     int
+	}{
+		{
+			name:    "successful filter with matches",
+			keyword: "go",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:   false,
+			expectedCount: 1, // Only "Go Code Review" matches
+		},
+		{
+			name:    "successful filter with multiple matches",
+			keyword: "John Doe",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:   false,
+			expectedCount: 2, // Two prompts by John Doe
+		},
+		{
+			name:    "no matches found",
+			keyword: "nonexistent",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:   false,
+			expectedCount: 0, // Empty slice, not an error
+		},
+		{
+			name:    "empty keyword",
+			keyword: "",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrValidation,
+		},
+		{
+			name:    "whitespace only keyword",
+			keyword: "   ",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrValidation,
+		},
+		{
+			name:    "case insensitive matching",
+			keyword: "SQL",
+			mockStore: &MockStore{
+				prompts: testPrompts,
+			},
+			expectError:   false,
+			expectedCount: 1, // "SQL Query Optimizer" should match
+		},
+		{
+			name:    "no index error",
+			keyword: "test",
+			mockStore: &MockStore{
+				getError: infra.ErrNoIndex,
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrValidation,
+		},
+		{
+			name:    "empty index error",
+			keyword: "test",
+			mockStore: &MockStore{
+				getError: infra.ErrEmptyIndex,
+			},
+			expectError: true,
+		},
+		{
+			name:    "store get failure",
+			keyword: "test",
+			mockStore: &MockStore{
+				getError: errors.NewAppError(errors.ErrStorage, "network error", nil),
+			},
+			expectError:       true,
+			expectedErrorType: errors.ErrStorage,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockValidator := &MockYAMLValidator{}
+			service := NewPromptService(tc.mockStore, mockValidator)
+
+			prompts, err := service.FilterForDeletion(tc.keyword)
+
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+					return
+				}
+
+				if tc.expectedErrorType != errors.ErrUnknown {
+					appErr, ok := err.(errors.AppError)
+					if !ok {
+						t.Errorf("Expected AppError, got %T: %v", err, err)
+					} else if appErr.Type != tc.expectedErrorType {
+						t.Errorf("Expected error type %v, got %v", tc.expectedErrorType, appErr.Type)
+					}
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+					return
+				}
+
+				if len(prompts) != tc.expectedCount {
+					t.Errorf("Expected %d prompts, got %d", tc.expectedCount, len(prompts))
+				}
+			}
+		})
+	}
+}
+
+func TestPromptService_DeleteByKeyword_EdgeCases(t *testing.T) {
+	testCases := []struct {
+		name      string
+		keyword   string
+		mockStore *MockStore
+		expectError bool
+	}{
+		{
+			name:    "delete with special characters in keyword",
+			keyword: "特殊字符 with émojis 🚀",
+			mockStore: &MockStore{
+				prompts: []model.Prompt{
+					{
+						ID:          "special123",
+						Name:        "特殊字符 with émojis 🚀",
+						Author:      "Test Author",
+						Description: "Test with special characters",
+						Content:     "Test content",
+						GistURL:     "https://gist.github.com/test/special123",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:    "delete with very long keyword",
+			keyword: strings.Repeat("long", 100),
+			mockStore: &MockStore{
+				prompts: []model.Prompt{},
+			},
+			expectError: true, // No matching prompts
+		},
+		{
+			name:    "delete when store returns empty results",
+			keyword: "test",
+			mockStore: &MockStore{
+				getFunc: func(keyword string) ([]model.Prompt, error) {
+					return []model.Prompt{}, nil
+				},
+			},
+			expectError: true, // Should return ErrNoPromptsToDelete
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockValidator := &MockYAMLValidator{}
+			service := NewPromptService(tc.mockStore, mockValidator)
+
+			err := service.DeleteByKeyword(tc.keyword)
+
+			if tc.expectError && err == nil {
+				t.Errorf("Expected error but got none")
+			} else if !tc.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestPromptService_DeleteByURL_EdgeCases(t *testing.T) {
+	testCases := []struct {
+		name      string
+		gistURL   string
+		mockStore *MockStore
+		expectError bool
+	}{
+		{
+			name:    "GitHub.com URL format",
+			gistURL: "https://github.com/user/gist123456",
+			mockStore: &MockStore{
+				prompts: []model.Prompt{
+					{
+						ID:      "gist123456",
+						Name:    "Test Prompt",
+						Author:  "Test User",
+						GistURL: "https://github.com/user/gist123456",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:    "URL with query parameters",
+			gistURL: "https://gist.github.com/user/gist123456?tab=readme",
+			mockStore: &MockStore{
+				prompts: []model.Prompt{
+					{
+						ID:      "gist123456",
+						Name:    "Test Prompt",
+						Author:  "Test User",
+						GistURL: "https://gist.github.com/user/gist123456",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:    "URL with fragment",
+			gistURL: "https://gist.github.com/user/gist123456#file-test-md",
+			mockStore: &MockStore{
+				prompts: []model.Prompt{
+					{
+						ID:      "gist123456",
+						Name:    "Test Prompt",
+						Author:  "Test User",
+						GistURL: "https://gist.github.com/user/gist123456",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "invalid characters in gist ID",
+			gistURL:     "https://gist.github.com/user/invalid@id",
+			mockStore:   &MockStore{},
+			expectError: true,
+		},
+		{
+			name:        "whitespace only URL",
+			gistURL:     "   ",
+			mockStore:   &MockStore{},
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockValidator := &MockYAMLValidator{}
+			service := NewPromptService(tc.mockStore, mockValidator)
+
+			err := service.DeleteByURL(tc.gistURL)
 
 			if tc.expectError && err == nil {
 				t.Errorf("Expected error but got none")

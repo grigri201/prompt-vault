@@ -2,6 +2,7 @@ package service
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/grigri/pv/internal/errors"
 	"github.com/grigri/pv/internal/infra"
 	"github.com/grigri/pv/internal/model"
+	"github.com/grigri/pv/internal/utils"
 	"github.com/grigri/pv/internal/validator"
 )
 
@@ -103,3 +105,180 @@ func (p *promptServiceImpl) AddFromFile(filePath string) (*model.Prompt, error) 
 
 	return prompt, nil
 }
+
+// DeleteByKeyword deletes prompts that match the given keyword
+func (p *promptServiceImpl) DeleteByKeyword(keyword string) error {
+	log.Printf("Starting delete by keyword: %s", keyword)
+	
+	// Validate input
+	if strings.TrimSpace(keyword) == "" {
+		return errors.NewAppError(
+			errors.ErrValidation,
+			"keyword cannot be empty",
+			errors.ErrPromptNotFound.Err,
+		)
+	}
+
+	// Use Store.Get() to find matching prompts
+	matchingPrompts, err := p.store.Get(keyword)
+	if err != nil {
+		log.Printf("Failed to search prompts by keyword '%s': %v", keyword, err)
+		return errors.NewAppError(
+			errors.ErrStorage,
+			"failed to search for prompts",
+			err,
+		)
+	}
+
+	// Check if any prompts were found
+	if len(matchingPrompts) == 0 {
+		log.Printf("No prompts found matching keyword: %s", keyword)
+		return errors.ErrNoPromptsToDelete
+	}
+
+	// For multiple matches, we need to handle them appropriately
+	// In a real implementation, this would be handled by the TUI layer
+	// For now, we'll delete all matching prompts
+	log.Printf("Found %d prompts matching keyword '%s'", len(matchingPrompts), keyword)
+
+	// Execute deletion for each matching prompt
+	for _, prompt := range matchingPrompts {
+		log.Printf("Deleting prompt: %s (ID: %s)", prompt.Name, prompt.ID)
+		err := p.store.Delete(prompt.ID)
+		if err != nil {
+			log.Printf("Failed to delete prompt %s: %v", prompt.Name, err)
+			return errors.NewAppError(
+				errors.ErrStorage,
+				"failed to delete prompt: "+prompt.Name,
+				err,
+			)
+		}
+	}
+
+	log.Printf("Successfully deleted %d prompts matching keyword '%s'", len(matchingPrompts), keyword)
+	return nil
+}
+
+// DeleteByURL deletes a prompt identified by its GitHub Gist URL
+func (p *promptServiceImpl) DeleteByURL(gistURL string) error {
+	log.Printf("Starting delete by URL: %s", gistURL)
+	
+	// Validate URL format
+	gistID, err := utils.ExtractGistID(gistURL)
+	if err != nil {
+		log.Printf("Invalid Gist URL format: %s", gistURL)
+		return err
+	}
+
+	log.Printf("Extracted Gist ID: %s", gistID)
+
+	// Use Store.Get() to verify the prompt exists by searching with the gist ID
+	matchingPrompts, err := p.store.Get(gistID)
+	if err != nil {
+		log.Printf("Failed to search for prompt with Gist ID '%s': %v", gistID, err)
+		return errors.NewAppError(
+			errors.ErrStorage,
+			"failed to search for prompt",
+			err,
+		)
+	}
+
+	// Check if the prompt was found
+	if len(matchingPrompts) == 0 {
+		log.Printf("No prompt found with Gist ID: %s", gistID)
+		return errors.ErrPromptNotFound
+	}
+
+	// Delete the prompt using the gist ID
+	log.Printf("Deleting prompt with Gist ID: %s", gistID)
+	err = p.store.Delete(gistID)
+	if err != nil {
+		log.Printf("Failed to delete prompt with Gist ID '%s': %v", gistID, err)
+		return errors.NewAppError(
+			errors.ErrStorage,
+			"failed to delete prompt",
+			err,
+		)
+	}
+
+	log.Printf("Successfully deleted prompt with Gist ID: %s", gistID)
+	return nil
+}
+
+// ListForDeletion retrieves all prompts available for deletion
+func (p *promptServiceImpl) ListForDeletion() ([]model.Prompt, error) {
+	log.Printf("Listing all prompts for deletion")
+	
+	prompts, err := p.store.List()
+	if err != nil {
+		// Handle specific store errors with user-friendly messages
+		if err == infra.ErrNoIndex {
+			log.Printf("No prompt index found - first time user")
+			return nil, errors.NewAppError(
+				errors.ErrValidation,
+				"没有找到提示索引 - 这似乎是您第一次使用 pv",
+				err,
+			)
+		}
+		if err == infra.ErrEmptyIndex {
+			log.Printf("No prompts found in collection")
+			return nil, errors.ErrNoPromptsToDelete
+		}
+		
+		log.Printf("Failed to list prompts: %v", err)
+		return nil, errors.NewAppError(
+			errors.ErrStorage,
+			"failed to list prompts",
+			err,
+		)
+	}
+
+	log.Printf("Found %d prompts available for deletion", len(prompts))
+	return prompts, nil
+}
+
+// FilterForDeletion retrieves prompts that match the given keyword for deletion
+func (p *promptServiceImpl) FilterForDeletion(keyword string) ([]model.Prompt, error) {
+	log.Printf("Filtering prompts for deletion with keyword: %s", keyword)
+	
+	// Validate input
+	if strings.TrimSpace(keyword) == "" {
+		return nil, errors.NewAppError(
+			errors.ErrValidation,
+			"keyword cannot be empty",
+			errors.ErrPromptNotFound.Err,
+		)
+	}
+
+	// Use Store.Get() to filter prompts
+	matchingPrompts, err := p.store.Get(keyword)
+	if err != nil {
+		// Handle specific store errors
+		if err == infra.ErrNoIndex {
+			log.Printf("No prompt index found - first time user")
+			return nil, errors.NewAppError(
+				errors.ErrValidation,
+				"没有找到提示索引 - 这似乎是您第一次使用 pv",
+				err,
+			)
+		}
+		if err == infra.ErrEmptyIndex {
+			log.Printf("No prompts found in collection")
+			return nil, errors.ErrNoPromptsToDelete
+		}
+		
+		log.Printf("Failed to filter prompts with keyword '%s': %v", keyword, err)
+		return nil, errors.NewAppError(
+			errors.ErrStorage,
+			"failed to filter prompts",
+			err,
+		)
+	}
+
+	log.Printf("Found %d prompts matching keyword '%s'", len(matchingPrompts), keyword)
+	
+	// Return empty slice if no matches (not an error condition for filtering)
+	return matchingPrompts, nil
+}
+
+// extractGistID extracts and validates the Gist ID from a GitHub Gist URL

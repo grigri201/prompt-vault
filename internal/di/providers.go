@@ -20,20 +20,23 @@ func ProvideAuthCommands(authService service.AuthService) *cobra.Command {
 
 // Commands holds all the subcommands
 type Commands struct {
-	ListCmd *cobra.Command
-	AddCmd  *cobra.Command
-	AuthCmd *cobra.Command
+	ListCmd   *cobra.Command
+	AddCmd    *cobra.Command
+	DeleteCmd *cobra.Command
+	AuthCmd   *cobra.Command
 }
 
 // ProvideCommands provides all commands
 func ProvideCommands(store infra.Store, authService service.AuthService, promptService service.PromptService) Commands {
 	listCmd := cmd.NewListCommand(store)
 	addCmd := cmd.NewAddCommand(promptService)
+	deleteCmd := cmd.NewDeleteCommand(store, promptService)
 	authCmd := ProvideAuthCommands(authService)
 	return Commands{
-		ListCmd: listCmd,
-		AddCmd:  addCmd,
-		AuthCmd: authCmd,
+		ListCmd:   listCmd,
+		AddCmd:    addCmd,
+		DeleteCmd: deleteCmd,
+		AuthCmd:   authCmd,
 	}
 }
 
@@ -49,5 +52,5 @@ func ProvidePromptService(store infra.Store, validator validator.YAMLValidator) 
 
 // ProvideRootCommand provides the root command with all subcommands
 func ProvideRootCommand(commands Commands) *cobra.Command {
-	return cmd.NewRootCommand(commands.ListCmd, commands.AddCmd, commands.AuthCmd)
+	return cmd.NewRootCommand(commands.ListCmd, commands.AddCmd, commands.DeleteCmd, commands.AuthCmd)
 }

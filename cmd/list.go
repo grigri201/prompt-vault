@@ -55,7 +55,7 @@ func (lc *list) execute(cmd *cobra.Command, args []string) {
 	fmt.Printf("📝 Found %d prompt(s):\n\n", len(prompts))
 	for i := range prompts {
 		var prompt = prompts[i]
-		fmt.Printf("  %s (by %s)\n", prompt.Name, prompt.Author)
+		fmt.Printf("  %s - author: %s : %s\n ", prompt.Name, prompt.Author, prompt.GistURL)
 	}
 }
 

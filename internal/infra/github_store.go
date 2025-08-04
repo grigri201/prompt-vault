@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-github/v74/github"
 	"github.com/grigri/pv/internal/config"
 	"github.com/grigri/pv/internal/model"
+	"github.com/grigri/pv/internal/utils"
 	"golang.org/x/oauth2"
 )
 
@@ -191,7 +192,7 @@ func (g *GitHubStore) List() ([]model.Prompt, error) {
 
 	for _, indexedPrompt := range index.Prompts {
 		// Extract gist ID from URL
-		gistID := extractGistIDFromURL(indexedPrompt.GistURL)
+		gistID := utils.ExtractGistIDFromURL(indexedPrompt.GistURL)
 		if gistID == "" {
 			continue
 		}
@@ -344,7 +345,7 @@ func (g *GitHubStore) Delete(keyword string) error {
 	// Find matching prompt in index
 	var toDelete []int
 	for i, indexedPrompt := range index.Prompts {
-		gistID := extractGistIDFromURL(indexedPrompt.GistURL)
+		gistID := utils.ExtractGistIDFromURL(indexedPrompt.GistURL)
 		if gistID == keyword || strings.Contains(indexedPrompt.FilePath, keyword) {
 			// Delete the gist
 			_, err := g.client.Gists.Delete(ctx, gistID)
@@ -430,7 +431,7 @@ func (g *GitHubStore) Update(prompt model.Prompt) error {
 	}
 
 	for i, indexedPrompt := range index.Prompts {
-		if extractGistIDFromURL(indexedPrompt.GistURL) == prompt.ID {
+		if utils.ExtractGistIDFromURL(indexedPrompt.GistURL) == prompt.ID {
 			index.Prompts[i].LastUpdated = time.Now()
 			index.Prompts[i].Author = prompt.Author  // 更新 author
 			index.Prompts[i].Name = prompt.Name      // 更新 name
@@ -470,12 +471,3 @@ func (g *GitHubStore) Get(keyword string) ([]model.Prompt, error) {
 	return matchingPrompts, nil
 }
 
-// extractGistIDFromURL extracts the gist ID from a GitHub gist URL
-func extractGistIDFromURL(url string) string {
-	// GitHub gist URLs are in the format: https://gist.github.com/{user}/{gist_id}
-	parts := strings.Split(url, "/")
-	if len(parts) >= 2 {
-		return parts[len(parts)-1]
-	}
-	return ""
-}

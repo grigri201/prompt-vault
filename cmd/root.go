@@ -8,7 +8,7 @@ import (
 
 type RootCmd = *cobra.Command
 
-func NewRootCommand(lc ListCmd, addCmd AddCmd, authCmd AuthCmd) RootCmd {
+func NewRootCommand(lc ListCmd, addCmd AddCmd, deleteCmd DeleteCmd, authCmd AuthCmd) RootCmd {
 	root := &cobra.Command{
 		Use:   "pv",
 		Short: "Prompt Vault CLI",
@@ -16,6 +16,18 @@ func NewRootCommand(lc ListCmd, addCmd AddCmd, authCmd AuthCmd) RootCmd {
 			fmt.Println("Hello, pv!")
 		},
 	}
-	root.AddCommand(lc, addCmd, authCmd)
+	root.AddCommand(lc, addCmd, deleteCmd, authCmd)
+	
+	// Create 'del' alias for delete command
+	delCmd := &cobra.Command{
+		Use:     "del [keyword|gist-url]",
+		Short:   "删除存储的提示 (delete 命令的别名)",
+		Long:    deleteCmd.Long,
+		Example: deleteCmd.Example,
+		Args:    deleteCmd.Args,
+		Run:     deleteCmd.Run,
+	}
+	root.AddCommand(delCmd)
+	
 	return root
 }
