@@ -13,7 +13,7 @@ type YAMLValidator interface {
 type PromptFileContent struct {
 	// Metadata contains the YAML front matter metadata
 	Metadata PromptMetadata `yaml:",inline"`
-	
+
 	// Content contains the actual prompt content after the --- separator
 	Content string `yaml:"-"`
 }
@@ -22,16 +22,16 @@ type PromptFileContent struct {
 type PromptMetadata struct {
 	// Name is the prompt name (required)
 	Name string `yaml:"name"`
-	
+
 	// Author is the author information (required)
 	Author string `yaml:"author"`
-	
+
 	// Description is an optional description of the prompt
 	Description string `yaml:"description,omitempty"`
-	
+
 	// Tags is an optional list of tags for categorization
 	Tags []string `yaml:"tags,omitempty"`
-	
+
 	// Version is an optional version string
 	Version string `yaml:"version,omitempty"`
 }

@@ -116,8 +116,8 @@ Content`),
 			expectedErrorType: errors.ErrInvalidYAML,
 		},
 		{
-			name: "empty input",
-			input: []byte(""),
+			name:              "empty input",
+			input:             []byte(""),
 			expectError:       true,
 			expectedErrorType: errors.ErrInvalidYAML,
 		},
@@ -190,7 +190,7 @@ And newlines\ttabs\r\n
 						t.Errorf("Expected AppError, got %T: %v", err, err)
 						return
 					}
-					
+
 					expectedErr, ok := tc.expectedErrorType.(errors.AppError)
 					if ok && appErr.Err != expectedErr {
 						t.Errorf("Expected error Err %v, got %v", expectedErr, appErr.Err)
@@ -814,14 +814,14 @@ Only content here`),
 			description: "空的标准格式 front matter 应该被允许",
 		},
 		{
-			name: "过长的文件",
-			input: bytes.Repeat([]byte("a"), 11<<20), // 11MB
+			name:        "过长的文件",
+			input:       bytes.Repeat([]byte("a"), 11<<20), // 11MB
 			expectError: true,
 			description: "超过大小限制的文件应该被拒绝",
 		},
 		{
-			name: "非 UTF-8 内容",
-			input: []byte{0xff, 0xfe, 0xfd}, // 无效的 UTF-8 字节
+			name:        "非 UTF-8 内容",
+			input:       []byte{0xff, 0xfe, 0xfd}, // 无效的 UTF-8 字节
 			expectError: true,
 			description: "非 UTF-8 内容应该被拒绝",
 		},
@@ -873,11 +873,11 @@ func TestFrontMatterParser_SpecificCases(t *testing.T) {
 	parser := &FrontMatterParser{}
 
 	testCases := []struct {
-		name           string
-		input          []byte
-		expectedYAML   string
+		name            string
+		input           []byte
+		expectedYAML    string
 		expectedContent string
-		expectError    bool
+		expectError     bool
 	}{
 		{
 			name: "YAML 字段包含 --- 的正确解析",

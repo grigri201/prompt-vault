@@ -36,7 +36,7 @@ func (p *FrontMatterParser) Parse(content []byte) (*ParseResult, error) {
 			errors.ErrInvalidYAML,
 		)
 	}
-	
+
 	if len(content) > MaxFileSize {
 		return nil, errors.NewAppError(
 			errors.ErrValidation,
@@ -44,7 +44,7 @@ func (p *FrontMatterParser) Parse(content []byte) (*ParseResult, error) {
 			errors.ErrInvalidYAML,
 		)
 	}
-	
+
 	// 检查是否为有效的 UTF-8
 	if !utf8.Valid(content) {
 		return nil, errors.NewAppError(
@@ -53,7 +53,7 @@ func (p *FrontMatterParser) Parse(content []byte) (*ParseResult, error) {
 			errors.ErrInvalidYAML,
 		)
 	}
-	
+
 	return p.parseContent(content)
 }
 
@@ -62,7 +62,7 @@ func (p *FrontMatterParser) parseContent(content []byte) (*ParseResult, error) {
 	// 将内容转换为字符串进行处理
 	contentStr := string(content)
 	lines := strings.Split(contentStr, "\n")
-	
+
 	if len(lines) == 0 {
 		return nil, errors.NewAppError(
 			errors.ErrValidation,
@@ -70,15 +70,15 @@ func (p *FrontMatterParser) parseContent(content []byte) (*ParseResult, error) {
 			errors.ErrInvalidYAML,
 		)
 	}
-	
+
 	var frontMatterLines []string
 	var contentLines []string
 	var frontMatterClosed bool
 	separatorIndex := -1
-	
+
 	// 检查第一行
 	firstLine := strings.TrimSpace(lines[0])
-	
+
 	if firstLine == "---" {
 		// 标准格式：以 --- 开头
 		// 寻找结束的 ---
@@ -99,12 +99,12 @@ func (p *FrontMatterParser) parseContent(content []byte) (*ParseResult, error) {
 			}
 			frontMatterLines = append(frontMatterLines, lines[i])
 		}
-		
+
 		if separatorIndex != -1 {
 			frontMatterClosed = true
 		}
 	}
-	
+
 	// 处理特殊情况
 	if len(lines) == 1 && firstLine == "---" {
 		// 只有一个 --- 的情况
@@ -114,7 +114,7 @@ func (p *FrontMatterParser) parseContent(content []byte) (*ParseResult, error) {
 			errors.ErrInvalidYAML,
 		)
 	}
-	
+
 	// 如果没有找到分隔符
 	if separatorIndex == -1 && firstLine != "---" {
 		return nil, errors.NewAppError(
@@ -123,7 +123,7 @@ func (p *FrontMatterParser) parseContent(content []byte) (*ParseResult, error) {
 			errors.ErrInvalidYAML,
 		)
 	}
-	
+
 	// 如果 front matter 没有正确闭合
 	if !frontMatterClosed {
 		return nil, errors.NewAppError(
@@ -132,16 +132,16 @@ func (p *FrontMatterParser) parseContent(content []byte) (*ParseResult, error) {
 			errors.ErrInvalidYAML,
 		)
 	}
-	
+
 	// 提取内容部分
 	if separatorIndex != -1 && separatorIndex < len(lines)-1 {
 		contentLines = lines[separatorIndex+1:]
 	}
-	
+
 	// 处理 YAML 内容
 	yamlContent := strings.Join(frontMatterLines, "\n")
 	yamlContent = strings.TrimSpace(yamlContent)
-	
+
 	// 对于 ---\n--- 这种空的 front matter，允许通过但设置为空
 	if yamlContent == "" && firstLine == "---" {
 		// 允许空的标准格式 front matter，但返回空字符串
@@ -153,11 +153,11 @@ func (p *FrontMatterParser) parseContent(content []byte) (*ParseResult, error) {
 			errors.ErrInvalidYAML,
 		)
 	}
-	
+
 	// 处理内容部分
 	bodyContent := strings.Join(contentLines, "\n")
 	bodyContent = strings.TrimSpace(bodyContent)
-	
+
 	return &ParseResult{
 		YAMLContent: yamlContent,
 		BodyContent: bodyContent,
@@ -169,31 +169,31 @@ func (p *FrontMatterParser) looksLikeYAML(line string) bool {
 	if line == "" {
 		return false
 	}
-	
+
 	// 检查是否以 # 开头（YAML 注释）
 	trimmed := strings.TrimSpace(line)
 	if strings.HasPrefix(trimmed, "#") {
 		return true
 	}
-	
+
 	// 检查常见的 YAML 模式
 	patterns := []string{
 		"name:", "title:", "author:", "description:",
 		"tags:", "version:", "date:", "draft:",
 	}
-	
+
 	lowered := strings.ToLower(line)
 	for _, pattern := range patterns {
 		if strings.Contains(lowered, pattern) {
 			return true
 		}
 	}
-	
+
 	// 检查是否是 key: value 格式
 	if strings.Contains(line, ":") && !strings.HasPrefix(strings.TrimSpace(line), "#") {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -208,12 +208,12 @@ func NewYAMLValidator() YAMLValidator {
 func (v *yamlValidatorImpl) ValidatePromptFile(content []byte) (*PromptFileContent, error) {
 	// 使用健壮的 Front Matter 解析器
 	parser := &FrontMatterParser{}
-	
+
 	result, err := parser.Parse(content)
 	if err != nil {
 		return nil, err // 错误已经被包装过了
 	}
-	
+
 	// 处理空的 YAML 内容（如 ---\n--- 的情况）
 	var metadata PromptMetadata
 	if strings.TrimSpace(result.YAMLContent) != "" {
@@ -226,7 +226,7 @@ func (v *yamlValidatorImpl) ValidatePromptFile(content []byte) (*PromptFileConte
 		}
 	}
 	// 如果 YAML 内容为空，metadata 将保持零值状态
-	
+
 	return &PromptFileContent{
 		Metadata: metadata,
 		Content:  result.BodyContent,
