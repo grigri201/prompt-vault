@@ -16,15 +16,15 @@ func generateXorKey() byte {
 	if username == "" {
 		username = os.Getenv("USERNAME") // Windows fallback
 	}
-	
+
 	// Combine with runtime info
 	data := hostname + username + runtime.GOOS + runtime.GOARCH
-	
+
 	// If no machine-specific data available, use a default
 	if data == "" {
 		return byte(0xAB)
 	}
-	
+
 	// Hash and return first byte
 	hash := sha256.Sum256([]byte(data))
 	return hash[0]

@@ -18,15 +18,15 @@ import (
 // Injectors from wire.go:
 
 func BuildCLI() (*cobra.Command, error) {
-	store := infra.NewMemoryStore()
-	configStore, err := config.NewFileStore()
+	store, err := config.NewFileStore()
 	if err != nil {
 		return nil, err
 	}
+	infraStore := infra.NewGitHubStore(store)
 	gitHubClient := auth.NewGitHubClient()
 	tokenValidator := auth.NewTokenValidator(gitHubClient)
-	authService := service.NewAuthService(configStore, gitHubClient, tokenValidator)
-	commands := ProvideCommands(store, authService)
+	authService := service.NewAuthService(store, gitHubClient, tokenValidator)
+	commands := ProvideCommands(infraStore, authService)
 	command := ProvideRootCommand(commands)
 	return command, nil
 }
@@ -34,7 +34,7 @@ func BuildCLI() (*cobra.Command, error) {
 // wire.go:
 
 // InfraSet provides infrastructure components
-var InfraSet = wire.NewSet(infra.NewMemoryStore, config.NewFileStore)
+var InfraSet = wire.NewSet(infra.NewGitHubStore, config.NewFileStore)
 
 // AuthSet provides authentication related components
 var AuthSet = wire.NewSet(auth.NewGitHubClient, auth.NewTokenValidator, service.NewAuthService)

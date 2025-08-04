@@ -16,7 +16,7 @@ import (
 
 // InfraSet provides infrastructure components
 var InfraSet = wire.NewSet(
-	infra.NewMemoryStore,
+	infra.NewGitHubStore,
 	config.NewFileStore,
 )
 
