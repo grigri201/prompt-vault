@@ -93,18 +93,18 @@ This is test prompt content`
 	}
 
 	testCases := []struct {
-		name                     string
-		filePath                 string
-		mockStore                *MockStore
-		mockValidator            *MockYAMLValidator
-		expectError              bool
-		expectedErrorType        errors.ErrorType
-		expectedPromptName       string
-		expectedPromptAuthor     string
-		expectedPromptContent    string
-		expectedPromptTags       []string
-		expectedPromptVersion    string
-		expectedPromptDesc       string
+		name                  string
+		filePath              string
+		mockStore             *MockStore
+		mockValidator         *MockYAMLValidator
+		expectError           bool
+		expectedErrorType     errors.ErrorType
+		expectedPromptName    string
+		expectedPromptAuthor  string
+		expectedPromptContent string
+		expectedPromptTags    []string
+		expectedPromptVersion string
+		expectedPromptDesc    string
 	}{
 		{
 			name:     "successful add from file",
@@ -118,17 +118,32 @@ This is test prompt content`
 					if prompt.Author != "Test Author" {
 						t.Errorf("Expected prompt author 'Test Author', got %q", prompt.Author)
 					}
-					if prompt.Content != "This is test prompt content" {
-						t.Errorf("Expected prompt content 'This is test prompt content', got %q", prompt.Content)
+					expectedFullContent := `name: "Test Prompt"
+author: "Test Author"
+description: "Test Description"
+tags:
+  - "test"
+version: "1.0"
+---
+This is test prompt content`
+						if prompt.Content != expectedFullContent {
+							t.Errorf("Expected prompt content %q, got %q", expectedFullContent, prompt.Content)
 					}
 					return nil
 				},
 			},
-			mockValidator: &MockYAMLValidator{},
-			expectError:   false,
+			mockValidator:         &MockYAMLValidator{},
+			expectError:           false,
 			expectedPromptName:    "Test Prompt",
 			expectedPromptAuthor:  "Test Author",
-			expectedPromptContent: "This is test prompt content",
+			expectedPromptContent: `name: "Test Prompt"
+author: "Test Author"
+description: "Test Description"
+tags:
+  - "test"
+version: "1.0"
+---
+This is test prompt content`,
 			expectedPromptTags:    []string{"test"},
 			expectedPromptVersion: "1.0",
 			expectedPromptDesc:    "Test Description",
@@ -158,8 +173,8 @@ This is test prompt content`
 			expectedErrorType: errors.ErrValidation,
 		},
 		{
-			name:     "YAML validation failure",
-			filePath: testFile,
+			name:      "YAML validation failure",
+			filePath:  testFile,
 			mockStore: &MockStore{},
 			mockValidator: &MockYAMLValidator{
 				validatePromptFileFunc: func(content []byte) (*validator.PromptFileContent, error) {
@@ -174,8 +189,8 @@ This is test prompt content`
 			expectedErrorType: errors.ErrValidation,
 		},
 		{
-			name:     "required field validation failure",
-			filePath: testFile,
+			name:      "required field validation failure",
+			filePath:  testFile,
 			mockStore: &MockStore{},
 			mockValidator: &MockYAMLValidator{
 				validateRequiredFunc: func(prompt *validator.PromptFileContent) error {
@@ -217,7 +232,7 @@ This is test prompt content`
 					t.Errorf("Expected error but got none")
 					return
 				}
-				
+
 				// Check error type if specified
 				if tc.expectedErrorType != errors.ErrUnknown {
 					appErr, ok := err.(errors.AppError)
@@ -421,7 +436,7 @@ Missing closing bracket and other syntax errors.`
 func TestPromptService_AddFromFile_ValidatorIntegration(t *testing.T) {
 	// Create temporary test file with various content types
 	tmpDir := t.TempDir()
-	
+
 	testCases := []struct {
 		name        string
 		fileContent string

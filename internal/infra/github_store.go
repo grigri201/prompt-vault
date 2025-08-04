@@ -208,18 +208,10 @@ func (g *GitHubStore) List() ([]model.Prompt, error) {
 			continue
 		}
 
-		// Extract name from filename, supporting both .md and .yaml extensions
-		name := indexedPrompt.FilePath
-		if strings.HasSuffix(name, ".md") {
-			name = strings.TrimSuffix(name, ".md")
-		} else if strings.HasSuffix(name, ".yaml") {
-			name = strings.TrimSuffix(name, ".yaml")
-		}
-
 		prompt := model.Prompt{
 			ID:      gistID,
-			Name:    name,
-			Author:  gist.GetOwner().GetLogin(),
+			Name:    indexedPrompt.Name,    // 直接使用索引中的 name
+			Author:  indexedPrompt.Author,  // 直接使用索引中的 author
 			GistURL: indexedPrompt.GistURL,
 		}
 
@@ -234,10 +226,60 @@ func (g *GitHubStore) List() ([]model.Prompt, error) {
 	return prompts, nil
 }
 
+// findExistingPrompt searches for an existing prompt with the same name and author
+func (g *GitHubStore) findExistingPrompt(name, author string) (*model.Prompt, error) {
+	if err := g.ensureInitialized(); err != nil {
+		return nil, err
+	}
+
+	allPrompts, err := g.List()
+	if err != nil {
+		// If we get ErrNoIndex or ErrEmptyIndex, that's fine - no existing prompts
+		if err == ErrNoIndex || err == ErrEmptyIndex {
+			return nil, nil
+		}
+		return nil, err
+	}
+	fmt.Println("allPrompts:", allPrompts)
+
+	for _, prompt := range allPrompts {
+		fmt.Println("name equals:", prompt.Name, name, prompt.Name == name)
+		fmt.Println("author equals:", prompt.Author, author, prompt.Author == author)
+		if prompt.Name == name && prompt.Author == author {
+			return &prompt, nil
+		}
+	}
+
+	return nil, nil
+}
+
 // Add creates a new prompt gist and updates the index
+
 func (g *GitHubStore) Add(prompt model.Prompt) error {
 	if err := g.ensureInitialized(); err != nil {
 		return err
+	}
+
+	// Check if a prompt with the same name and author already exists
+	existingPrompt, err := g.findExistingPrompt(prompt.Name, prompt.Author)
+	if err != nil {
+		return fmt.Errorf("failed to check for existing prompt: %w", err)
+	}
+
+	fmt.Println(
+		"existingPrompt",
+		existingPrompt,
+	)
+
+	// If an existing prompt is found, update it instead of creating a new one
+	if existingPrompt != nil {
+		// Copy the new content and other updatable fields to the existing prompt
+		existingPrompt.Content = prompt.Content
+		existingPrompt.Description = prompt.Description
+		existingPrompt.Tags = prompt.Tags
+		existingPrompt.Version = prompt.Version
+
+		return g.Update(*existingPrompt)
 	}
 
 	ctx := context.Background()
@@ -276,6 +318,8 @@ func (g *GitHubStore) Add(prompt model.Prompt) error {
 	indexedPrompt := model.IndexedPrompt{
 		GistURL:     createdGist.GetHTMLURL(),
 		FilePath:    fileName,
+		Author:      prompt.Author,  // 使用 YAML 中的 author
+		Name:        prompt.Name,    // 使用 YAML 中的 name
 		LastUpdated: time.Now(),
 	}
 
@@ -329,21 +373,57 @@ func (g *GitHubStore) Update(prompt model.Prompt) error {
 	ctx := context.Background()
 
 	// Get existing gist
-	gist, _, err := g.client.Gists.Get(ctx, prompt.ID)
+	existingGist, _, err := g.client.Gists.Get(ctx, prompt.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get gist: %w", err)
 	}
 
-	// Update gist description
-	gist.Description = github.Ptr(fmt.Sprintf("Prompt: %s", prompt.Name))
+	// Find the existing file name (should be prompt.Name + ".yaml")
+	fileName := prompt.Name + ".yaml"
+	var existingFileName string
+	for filename := range existingGist.Files {
+		// Try to find the existing file - it might have a different name if the prompt name changed
+		if strings.HasSuffix(string(filename), ".yaml") {
+			existingFileName = string(filename)
+			break
+		}
+	}
+
+	// If no existing file found, use the new filename
+	if existingFileName == "" {
+		existingFileName = fileName
+	}
+
+	// Build gist description with prompt metadata
+	description := fmt.Sprintf("Prompt: %s", prompt.Name)
+	if prompt.Description != "" {
+		description = fmt.Sprintf("Prompt: %s - %s", prompt.Name, prompt.Description)
+	}
+
+	// Prepare the updated gist
+	updatedGist := &github.Gist{
+		Description: github.Ptr(description),
+		Files: map[github.GistFilename]github.GistFile{
+			github.GistFilename(fileName): {
+				Content: github.Ptr(prompt.Content),
+			},
+		},
+	}
+
+	// If the filename changed, we need to delete the old file
+	if existingFileName != fileName {
+		updatedGist.Files[github.GistFilename(existingFileName)] = github.GistFile{
+			Content: nil, // Setting content to nil deletes the file
+		}
+	}
 
 	// Update the gist
-	_, _, err = g.client.Gists.Edit(ctx, prompt.ID, gist)
+	_, _, err = g.client.Gists.Edit(ctx, prompt.ID, updatedGist)
 	if err != nil {
 		return fmt.Errorf("failed to update gist: %w", err)
 	}
 
-	// Update index timestamp
+	// Update index timestamp and filename if changed
 	index, err := g.loadIndex()
 	if err != nil {
 		return err
@@ -352,6 +432,12 @@ func (g *GitHubStore) Update(prompt model.Prompt) error {
 	for i, indexedPrompt := range index.Prompts {
 		if extractGistIDFromURL(indexedPrompt.GistURL) == prompt.ID {
 			index.Prompts[i].LastUpdated = time.Now()
+			index.Prompts[i].Author = prompt.Author  // 更新 author
+			index.Prompts[i].Name = prompt.Name      // 更新 name
+			// Update filename in index if it changed
+			if existingFileName != fileName {
+				index.Prompts[i].FilePath = fileName
+			}
 			break
 		}
 	}

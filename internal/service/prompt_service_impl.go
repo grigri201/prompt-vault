@@ -88,7 +88,7 @@ func (p *promptServiceImpl) AddFromFile(filePath string) (*model.Prompt, error) 
 		Description: promptFileContent.Metadata.Description,
 		Tags:        promptFileContent.Metadata.Tags,
 		Version:     promptFileContent.Metadata.Version,
-		Content:     promptFileContent.Content,
+		Content:     string(content),
 		GistURL:     "", // GistURL will be set by the store after creating the gist
 	}
 
