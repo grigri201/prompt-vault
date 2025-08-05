@@ -181,3 +181,9 @@ func writeFileWithPermissions(path string, data []byte) error {
 
 	return nil
 }
+
+// WriteFileWithPermissions is a public wrapper around writeFileWithPermissions
+// It writes data to a file with appropriate secure permissions (0600)
+func WriteFileWithPermissions(path string, data []byte) error {
+	return writeFileWithPermissions(path, data)
+}

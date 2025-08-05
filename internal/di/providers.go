@@ -5,6 +5,7 @@ import (
 
 	"github.com/grigri/pv/cmd"
 	"github.com/grigri/pv/internal/clipboard"
+	"github.com/grigri/pv/internal/config"
 	"github.com/grigri/pv/internal/infra"
 	"github.com/grigri/pv/internal/service"
 	"github.com/grigri/pv/internal/tui"
@@ -27,28 +28,32 @@ type Commands struct {
 	AddCmd    *cobra.Command
 	DeleteCmd *cobra.Command
 	GetCmd    *cobra.Command
+	SyncCmd   *cobra.Command
 	AuthCmd   *cobra.Command
 }
 
 // ProvideCommands provides all commands
 func ProvideCommands(
 	store infra.Store, 
+	configStore config.Store,
 	authService service.AuthService, 
 	promptService service.PromptService,
 	clipboardUtil clipboard.Util,
 	variableParser variable.Parser,
 	tuiInterface tui.TUIInterface,
 ) Commands {
-	listCmd := cmd.NewListCommand(store)
+	listCmd := cmd.NewListCommand(store, configStore)
 	addCmd := cmd.NewAddCommand(promptService)
 	deleteCmd := cmd.NewDeleteCommand(store, promptService)
 	getCmd := cmd.NewGetCommand(promptService, clipboardUtil, variableParser, tuiInterface)
+	syncCmd := cmd.NewSyncCommand(promptService)
 	authCmd := ProvideAuthCommands(authService)
 	return Commands{
 		ListCmd:   listCmd,
 		AddCmd:    addCmd,
 		DeleteCmd: deleteCmd,
 		GetCmd:    getCmd,
+		SyncCmd:   syncCmd,
 		AuthCmd:   authCmd,
 	}
 }
@@ -78,7 +83,26 @@ func ProvideTUIInterface() tui.TUIInterface {
 	return tui.NewBubbleTeaTUI()
 }
 
+// ProvideCacheManager provides a CacheManager instance
+func ProvideCacheManager() (*infra.CacheManager, error) {
+	return infra.NewCacheManager()
+}
+
+// ProvideGitHubStore provides a GitHubStore instance (not bound to Store interface)
+func ProvideGitHubStore(configStore config.Store) *infra.GitHubStore {
+	// Use the existing NewGitHubStore and perform type assertion
+	// This is safe because we know NewGitHubStore returns *GitHubStore wrapped in Store interface
+	return infra.NewGitHubStore(configStore).(*infra.GitHubStore)
+}
+
+// ProvideCachedStore provides a CachedStore instance that wraps GitHubStore with caching
+func ProvideCachedStore(gitHubStore *infra.GitHubStore, cacheManager *infra.CacheManager, configStore config.Store) infra.Store {
+	// Default to forceRemote = false for normal operations
+	// Commands can override this behavior as needed
+	return infra.NewCachedStore(gitHubStore, cacheManager, configStore, false)
+}
+
 // ProvideRootCommand provides the root command with all subcommands
 func ProvideRootCommand(commands Commands) *cobra.Command {
-	return cmd.NewRootCommand(commands.ListCmd, commands.AddCmd, commands.DeleteCmd, commands.GetCmd, commands.AuthCmd)
+	return cmd.NewRootCommand(commands.ListCmd, commands.AddCmd, commands.DeleteCmd, commands.GetCmd, commands.SyncCmd, commands.AuthCmd)
 }

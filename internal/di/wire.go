@@ -8,7 +8,6 @@ import (
 
 	"github.com/grigri/pv/internal/auth"
 	"github.com/grigri/pv/internal/config"
-	"github.com/grigri/pv/internal/infra"
 	"github.com/grigri/pv/internal/service"
 	"github.com/grigri/pv/internal/validator"
 
@@ -17,8 +16,10 @@ import (
 
 // InfraSet provides infrastructure components
 var InfraSet = wire.NewSet(
-	infra.NewGitHubStore,
+	ProvideGitHubStore,
 	config.NewFileStore,
+	ProvideCacheManager,
+	ProvideCachedStore,
 )
 
 // AuthSet provides authentication related components

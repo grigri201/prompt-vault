@@ -10,7 +10,6 @@ import (
 	"github.com/google/wire"
 	"github.com/grigri/pv/internal/auth"
 	"github.com/grigri/pv/internal/config"
-	"github.com/grigri/pv/internal/infra"
 	"github.com/grigri/pv/internal/service"
 	"github.com/grigri/pv/internal/validator"
 	"github.com/spf13/cobra"
@@ -23,7 +22,12 @@ func BuildCLI() (*cobra.Command, error) {
 	if err != nil {
 		return nil, err
 	}
-	infraStore := infra.NewGitHubStore(store)
+	gitHubStore := ProvideGitHubStore(store)
+	cacheManager, err := ProvideCacheManager()
+	if err != nil {
+		return nil, err
+	}
+	infraStore := ProvideCachedStore(gitHubStore, cacheManager, store)
 	gitHubClient := auth.NewGitHubClient()
 	tokenValidator := auth.NewTokenValidator(gitHubClient)
 	authService := service.NewAuthService(store, gitHubClient, tokenValidator)
@@ -32,7 +36,7 @@ func BuildCLI() (*cobra.Command, error) {
 	util := ProvideClipboardUtil()
 	parser := ProvideVariableParser()
 	tuiInterface := ProvideTUIInterface()
-	commands := ProvideCommands(infraStore, authService, promptService, util, parser, tuiInterface)
+	commands := ProvideCommands(infraStore, store, authService, promptService, util, parser, tuiInterface)
 	command := ProvideRootCommand(commands)
 	return command, nil
 }
@@ -40,7 +44,10 @@ func BuildCLI() (*cobra.Command, error) {
 // wire.go:
 
 // InfraSet provides infrastructure components
-var InfraSet = wire.NewSet(infra.NewGitHubStore, config.NewFileStore)
+var InfraSet = wire.NewSet(
+	ProvideGitHubStore, config.NewFileStore, ProvideCacheManager,
+	ProvideCachedStore,
+)
 
 // AuthSet provides authentication related components
 var AuthSet = wire.NewSet(auth.NewGitHubClient, auth.NewTokenValidator, service.NewAuthService)
