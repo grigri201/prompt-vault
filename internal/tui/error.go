@@ -29,6 +29,9 @@ func NewErrorModel(err error) ErrorModel {
 	if appErr, ok := err.(*errors.AppError); ok {
 		errorType = appErr.Type
 		message = appErr.Message
+	} else if appErr, ok := err.(errors.AppError); ok {
+		errorType = appErr.Type
+		message = appErr.Message
 	} else {
 		errorType = errors.ErrUnknown
 		message = err.Error()
@@ -142,11 +145,11 @@ func (m ErrorModel) getErrorIconAndColor() (string, string) {
 	case errors.ErrValidation:
 		return "⚠️", ColorWarning
 	case errors.ErrAuth:
-		return "🔒", ColorError
+		return "🔐", ColorError
 	case errors.ErrStorage:
 		return "💾", ColorError
 	case errors.ErrNetwork:
-		return "🌐", ColorError
+		return "🌐", ColorWarning
 	case errors.ErrPermission:
 		return "🔐", ColorError
 	default:
@@ -160,15 +163,15 @@ func (m ErrorModel) getErrorTitle() string {
 	case errors.ErrValidation:
 		return "输入验证错误"
 	case errors.ErrAuth:
-		return "身份验证错误"
+		return "权限验证失败"
 	case errors.ErrStorage:
-		return "存储错误"
+		return "存储操作失败"
 	case errors.ErrNetwork:
-		return "网络错误"
+		return "网络连接错误"
 	case errors.ErrPermission:
-		return "权限错误"
+		return "权限验证失败"
 	default:
-		return "操作失败"
+		return "系统错误"
 	}
 }
 

@@ -205,9 +205,9 @@ func (p *promptServiceImpl) DeleteByURL(gistURL string) error {
 	return nil
 }
 
-// ListForDeletion retrieves all prompts available for deletion
-func (p *promptServiceImpl) ListForDeletion() ([]model.Prompt, error) {
-	log.Printf("Listing all prompts for deletion")
+// ListPrompts retrieves all prompts available in the vault
+func (p *promptServiceImpl) ListPrompts() ([]model.Prompt, error) {
+	log.Printf("Listing all prompts")
 	
 	prompts, err := p.store.List()
 	if err != nil {
@@ -233,13 +233,13 @@ func (p *promptServiceImpl) ListForDeletion() ([]model.Prompt, error) {
 		)
 	}
 
-	log.Printf("Found %d prompts available for deletion", len(prompts))
+	log.Printf("Found %d prompts available", len(prompts))
 	return prompts, nil
 }
 
-// FilterForDeletion retrieves prompts that match the given keyword for deletion
-func (p *promptServiceImpl) FilterForDeletion(keyword string) ([]model.Prompt, error) {
-	log.Printf("Filtering prompts for deletion with keyword: %s", keyword)
+// FilterPrompts retrieves prompts that match the given keyword
+func (p *promptServiceImpl) FilterPrompts(keyword string) ([]model.Prompt, error) {
+	log.Printf("Filtering prompts with keyword: %s", keyword)
 	
 	// Validate input
 	if strings.TrimSpace(keyword) == "" {
@@ -279,6 +279,97 @@ func (p *promptServiceImpl) FilterForDeletion(keyword string) ([]model.Prompt, e
 	
 	// Return empty slice if no matches (not an error condition for filtering)
 	return matchingPrompts, nil
+}
+
+// GetPromptByURL retrieves a specific prompt by its GitHub Gist URL
+func (p *promptServiceImpl) GetPromptByURL(gistURL string) (*model.Prompt, error) {
+	log.Printf("Getting prompt by URL: %s", gistURL)
+	
+	// Validate URL format and extract Gist ID
+	gistID, err := utils.ExtractGistID(gistURL)
+	if err != nil {
+		log.Printf("Invalid Gist URL format: %s", gistURL)
+		return nil, err
+	}
+
+	log.Printf("Extracted Gist ID: %s", gistID)
+
+	// Use Store.Get() to find the prompt by gist ID
+	matchingPrompts, err := p.store.Get(gistID)
+	if err != nil {
+		// Handle specific store errors
+		if err == infra.ErrNoIndex {
+			log.Printf("No prompt index found - first time user")
+			return nil, errors.NewAppError(
+				errors.ErrValidation,
+				"没有找到提示索引 - 这似乎是您第一次使用 pv",
+				err,
+			)
+		}
+		if err == infra.ErrEmptyIndex {
+			log.Printf("No prompts found in collection")
+			return nil, errors.NewAppError(
+				errors.ErrValidation,
+				"没有找到任何提示词",
+				err,
+			)
+		}
+		
+		log.Printf("Failed to search for prompt with Gist ID '%s': %v", gistID, err)
+		return nil, errors.NewAppError(
+			errors.ErrStorage,
+			"failed to search for prompt",
+			err,
+		)
+	}
+
+	// Check if the prompt was found
+	if len(matchingPrompts) == 0 {
+		log.Printf("No prompt found with Gist ID: %s", gistID)
+		return nil, errors.ErrPromptNotFound
+	}
+
+	// Return the first matching prompt (should be only one for a specific URL)
+	prompt := matchingPrompts[0]
+	log.Printf("Found prompt: %s (ID: %s)", prompt.Name, prompt.ID)
+	return &prompt, nil
+}
+
+// GetPromptContent retrieves the actual content of a prompt from GitHub Gist
+func (p *promptServiceImpl) GetPromptContent(prompt *model.Prompt) (string, error) {
+	// Validate input first before logging
+	if prompt == nil {
+		log.Printf("GetPromptContent called with nil prompt")
+		return "", errors.NewAppError(
+			errors.ErrValidation,
+			"prompt cannot be nil",
+			errors.ErrPromptNotFound.Err,
+		)
+	}
+	
+	log.Printf("Getting content for prompt: %s (ID: %s)", prompt.Name, prompt.ID)
+	
+	if strings.TrimSpace(prompt.ID) == "" {
+		return "", errors.NewAppError(
+			errors.ErrValidation,
+			"prompt ID cannot be empty",
+			errors.ErrPromptNotFound.Err,
+		)
+	}
+
+	// Use the store to get the content
+	content, err := p.store.GetContent(prompt.ID)
+	if err != nil {
+		log.Printf("Failed to get content for prompt %s: %v", prompt.ID, err)
+		return "", errors.NewAppError(
+			errors.ErrStorage,
+			"failed to retrieve prompt content",
+			err,
+		)
+	}
+
+	log.Printf("Successfully retrieved content for prompt: %s", prompt.Name)
+	return content, nil
 }
 
 // extractGistID extracts and validates the Gist ID from a GitHub Gist URL

@@ -21,17 +21,17 @@ type MockPromptService struct {
 	addFromFileError          error
 	deleteByKeywordError      error
 	deleteByURLError          error
-	listForDeletionResult     []model.Prompt
-	listForDeletionError      error
-	filterForDeletionResult   []model.Prompt
-	filterForDeletionError    error
+	listPromptsResult     []model.Prompt
+	listPromptsError      error
+	filterPromptsResult   []model.Prompt
+	filterPromptsError    error
 
 	// Method call tracking
 	addFromFileCalls         []string
 	deleteByKeywordCalls     []string
 	deleteByURLCalls         []string
-	listForDeletionCalls     int
-	filterForDeletionCalls   []string
+	listPromptsCalls     int
+	filterPromptsCalls   []string
 
 	// Custom function overrides
 	deleteByKeywordFunc     func(string) error
@@ -45,7 +45,7 @@ func NewMockPromptService() *MockPromptService {
 		addFromFileCalls:       make([]string, 0),
 		deleteByKeywordCalls:   make([]string, 0),
 		deleteByURLCalls:       make([]string, 0),
-		filterForDeletionCalls: make([]string, 0),
+		filterPromptsCalls: make([]string, 0),
 	}
 }
 
@@ -73,26 +73,38 @@ func (m *MockPromptService) DeleteByURL(gistURL string) error {
 	return m.deleteByURLError
 }
 
-func (m *MockPromptService) ListForDeletion() ([]model.Prompt, error) {
-	m.listForDeletionCalls++
+func (m *MockPromptService) ListPrompts() ([]model.Prompt, error) {
+	m.listPromptsCalls++
 	if m.listForDeletionFunc != nil {
 		return m.listForDeletionFunc()
 	}
-	if m.listForDeletionError != nil {
-		return nil, m.listForDeletionError
+	if m.listPromptsError != nil {
+		return nil, m.listPromptsError
 	}
-	return m.listForDeletionResult, nil
+	return m.listPromptsResult, nil
 }
 
-func (m *MockPromptService) FilterForDeletion(keyword string) ([]model.Prompt, error) {
-	m.filterForDeletionCalls = append(m.filterForDeletionCalls, keyword)
+func (m *MockPromptService) FilterPrompts(keyword string) ([]model.Prompt, error) {
+	m.filterPromptsCalls = append(m.filterPromptsCalls, keyword)
 	if m.filterForDeletionFunc != nil {
 		return m.filterForDeletionFunc(keyword)
 	}
-	if m.filterForDeletionError != nil {
-		return nil, m.filterForDeletionError
+	if m.filterPromptsError != nil {
+		return nil, m.filterPromptsError
 	}
-	return m.filterForDeletionResult, nil
+	return m.filterPromptsResult, nil
+}
+
+// GetPromptByURL implements the missing PromptService method for testing
+func (m *MockPromptService) GetPromptByURL(gistURL string) (*model.Prompt, error) {
+	// This method is not used by delete command but required by interface
+	return nil, nil
+}
+
+// GetPromptContent implements the missing PromptService method for testing
+func (m *MockPromptService) GetPromptContent(prompt *model.Prompt) (string, error) {
+	// This method is not used by delete command but required by interface
+	return "", nil
 }
 
 func (m *MockPromptService) Reset() {
@@ -100,15 +112,15 @@ func (m *MockPromptService) Reset() {
 	m.addFromFileError = nil
 	m.deleteByKeywordError = nil
 	m.deleteByURLError = nil
-	m.listForDeletionResult = nil
-	m.listForDeletionError = nil
-	m.filterForDeletionResult = nil
-	m.filterForDeletionError = nil
+	m.listPromptsResult = nil
+	m.listPromptsError = nil
+	m.filterPromptsResult = nil
+	m.filterPromptsError = nil
 	m.addFromFileCalls = make([]string, 0)
 	m.deleteByKeywordCalls = make([]string, 0)
 	m.deleteByURLCalls = make([]string, 0)
-	m.listForDeletionCalls = 0
-	m.filterForDeletionCalls = make([]string, 0)
+	m.listPromptsCalls = 0
+	m.filterPromptsCalls = make([]string, 0)
 	m.deleteByKeywordFunc = nil
 	m.deleteByURLFunc = nil
 	m.listForDeletionFunc = nil
@@ -188,6 +200,12 @@ func (m *MockStore) Get(keyword string) ([]model.Prompt, error) {
 		}
 	}
 	return matches, nil
+}
+
+// GetContent implements the missing Store method for testing
+func (m *MockStore) GetContent(gistID string) (string, error) {
+	// This method is not used by delete command but required by interface
+	return "", nil
 }
 
 // Test data helpers
@@ -451,9 +469,9 @@ func TestDeleteCommand_ParameterParsing(t *testing.T) {
 			// Set up mock responses based on expected mode
 			switch tc.expectedMode {
 			case "interactive":
-				mockPromptService.listForDeletionResult = createTestPrompts()
+				mockPromptService.listPromptsResult = createTestPrompts()
 			case "filter":
-				mockPromptService.filterForDeletionResult = createTestPrompts()[:1]
+				mockPromptService.filterPromptsResult = createTestPrompts()[:1]
 			case "direct":
 				mockStore.prompts = createTestPrompts()
 			}
@@ -481,15 +499,15 @@ func TestDeleteCommand_ParameterParsing(t *testing.T) {
 			// Verify correct service method calls based on mode
 			switch tc.expectedMode {
 			case "interactive":
-				if mockPromptService.listForDeletionCalls != 1 {
-					t.Errorf("Expected 1 ListForDeletion call, got %d", mockPromptService.listForDeletionCalls)
+				if mockPromptService.listPromptsCalls != 1 {
+					t.Errorf("Expected 1 ListPrompts call, got %d", mockPromptService.listPromptsCalls)
 				}
 			case "filter":
-				if len(mockPromptService.filterForDeletionCalls) == 0 {
-					t.Error("Expected FilterForDeletion to be called")
-				} else if mockPromptService.filterForDeletionCalls[0] != tc.args[0] {
-					t.Errorf("Expected FilterForDeletion to be called with %q, got %q", 
-						tc.args[0], mockPromptService.filterForDeletionCalls[0])
+				if len(mockPromptService.filterPromptsCalls) == 0 {
+					t.Error("Expected FilterPrompts to be called")
+				} else if mockPromptService.filterPromptsCalls[0] != tc.args[0] {
+					t.Errorf("Expected FilterPrompts to be called with %q, got %q", 
+						tc.args[0], mockPromptService.filterPromptsCalls[0])
 				}
 			case "direct":
 				// Note: Direct mode calls store.Get first, then DeleteByURL
@@ -645,10 +663,10 @@ func TestDeleteCommand_RoutingLogic(t *testing.T) {
 			name: "no args routes to interactive mode",
 			args: []string{},
 			setupMocks: func(store *MockStore, service *MockPromptService) {
-				service.listForDeletionResult = createTestPrompts()
+				service.listPromptsResult = createTestPrompts()
 			},
 			expectedServiceCalls: map[string]int{
-				"ListForDeletion": 1,
+				"ListPrompts": 1,
 			},
 			expectedMode: "interactive",
 		},
@@ -656,10 +674,10 @@ func TestDeleteCommand_RoutingLogic(t *testing.T) {
 			name: "keyword routes to filter mode",
 			args: []string{"golang"},
 			setupMocks: func(store *MockStore, service *MockPromptService) {
-				service.filterForDeletionResult = createTestPrompts()[:1]
+				service.filterPromptsResult = createTestPrompts()[:1]
 			},
 			expectedServiceCalls: map[string]int{
-				"FilterForDeletion": 1,
+				"FilterPrompts": 1,
 			},
 			expectedMode: "filter",
 		},
@@ -701,17 +719,17 @@ func TestDeleteCommand_RoutingLogic(t *testing.T) {
 			})
 
 			// Verify service calls
-			if expectedCalls, exists := tc.expectedServiceCalls["ListForDeletion"]; exists {
-				if mockPromptService.listForDeletionCalls != expectedCalls {
-					t.Errorf("Expected %d ListForDeletion calls, got %d", 
-						expectedCalls, mockPromptService.listForDeletionCalls)
+			if expectedCalls, exists := tc.expectedServiceCalls["ListPrompts"]; exists {
+				if mockPromptService.listPromptsCalls != expectedCalls {
+					t.Errorf("Expected %d ListPrompts calls, got %d", 
+						expectedCalls, mockPromptService.listPromptsCalls)
 				}
 			}
 
-			if expectedCalls, exists := tc.expectedServiceCalls["FilterForDeletion"]; exists {
-				if len(mockPromptService.filterForDeletionCalls) != expectedCalls {
-					t.Errorf("Expected %d FilterForDeletion calls, got %d", 
-						expectedCalls, len(mockPromptService.filterForDeletionCalls))
+			if expectedCalls, exists := tc.expectedServiceCalls["FilterPrompts"]; exists {
+				if len(mockPromptService.filterPromptsCalls) != expectedCalls {
+					t.Errorf("Expected %d FilterPrompts calls, got %d", 
+						expectedCalls, len(mockPromptService.filterPromptsCalls))
 				}
 			}
 
@@ -782,9 +800,9 @@ func TestDeleteCommand_InteractiveMode(t *testing.T) {
 			
 			// Set up service responses
 			if tc.serviceError != nil {
-				mockPromptService.listForDeletionError = tc.serviceError
+				mockPromptService.listPromptsError = tc.serviceError
 			} else {
-				mockPromptService.listForDeletionResult = tc.prompts
+				mockPromptService.listPromptsResult = tc.prompts
 			}
 
 			cmd := NewDeleteCommand(mockStore, mockPromptService)
@@ -852,9 +870,9 @@ func TestDeleteCommand_FilterMode(t *testing.T) {
 			
 			// Set up service responses
 			if tc.serviceError != nil {
-				mockPromptService.filterForDeletionError = tc.serviceError
+				mockPromptService.filterPromptsError = tc.serviceError
 			} else {
-				mockPromptService.filterForDeletionResult = tc.filteredPrompts
+				mockPromptService.filterPromptsResult = tc.filteredPrompts
 			}
 
 			cmd := NewDeleteCommand(mockStore, mockPromptService)
@@ -873,12 +891,12 @@ func TestDeleteCommand_FilterMode(t *testing.T) {
 
 			// Verify service was called with correct keyword
 			if tc.serviceError == nil {
-				if len(mockPromptService.filterForDeletionCalls) != 1 {
-					t.Errorf("Expected 1 FilterForDeletion call, got %d", 
-						len(mockPromptService.filterForDeletionCalls))
-				} else if mockPromptService.filterForDeletionCalls[0] != tc.keyword {
-					t.Errorf("Expected FilterForDeletion called with %q, got %q", 
-						tc.keyword, mockPromptService.filterForDeletionCalls[0])
+				if len(mockPromptService.filterPromptsCalls) != 1 {
+					t.Errorf("Expected 1 FilterPrompts call, got %d", 
+						len(mockPromptService.filterPromptsCalls))
+				} else if mockPromptService.filterPromptsCalls[0] != tc.keyword {
+					t.Errorf("Expected FilterPrompts called with %q, got %q", 
+						tc.keyword, mockPromptService.filterPromptsCalls[0])
 				}
 			}
 		})
@@ -975,7 +993,7 @@ func TestDeleteCommand_EdgeCases(t *testing.T) {
 			name: "special characters in keyword",
 			args: []string{"特殊字符 with émojis 🚀"},
 			setupMocks: func(store *MockStore, service *MockPromptService) {
-				service.filterForDeletionResult = []model.Prompt{}
+				service.filterPromptsResult = []model.Prompt{}
 			},
 			expectedOutput: []string{
 				"No prompts found matching",
@@ -985,7 +1003,7 @@ func TestDeleteCommand_EdgeCases(t *testing.T) {
 			name: "very long keyword",
 			args: []string{strings.Repeat("long", 50)},
 			setupMocks: func(store *MockStore, service *MockPromptService) {
-				service.filterForDeletionResult = []model.Prompt{}
+				service.filterPromptsResult = []model.Prompt{}
 			},
 			expectedOutput: []string{
 				"No prompts found matching",

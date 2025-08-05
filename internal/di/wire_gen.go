@@ -29,7 +29,10 @@ func BuildCLI() (*cobra.Command, error) {
 	authService := service.NewAuthService(store, gitHubClient, tokenValidator)
 	yamlValidator := validator.NewYAMLValidator()
 	promptService := service.NewPromptService(infraStore, yamlValidator)
-	commands := ProvideCommands(infraStore, authService, promptService)
+	util := ProvideClipboardUtil()
+	parser := ProvideVariableParser()
+	tuiInterface := ProvideTUIInterface()
+	commands := ProvideCommands(infraStore, authService, promptService, util, parser, tuiInterface)
 	command := ProvideRootCommand(commands)
 	return command, nil
 }
@@ -44,6 +47,13 @@ var AuthSet = wire.NewSet(auth.NewGitHubClient, auth.NewTokenValidator, service.
 
 // ServiceSet provides service layer components
 var ServiceSet = wire.NewSet(validator.NewYAMLValidator, service.NewPromptService)
+
+// GetCommandSet provides components specific to the get command
+var GetCommandSet = wire.NewSet(
+	ProvideClipboardUtil,
+	ProvideVariableParser,
+	ProvideTUIInterface,
+)
 
 // CommandSet provides CLI commands
 var CommandSet = wire.NewSet(

@@ -17,13 +17,23 @@ type PromptService interface {
 	// Returns an error if the URL format is invalid, the prompt is not found, or deletion fails.
 	DeleteByURL(gistURL string) error
 
-	// ListForDeletion retrieves all prompts available for deletion.
+	// ListPrompts retrieves all prompts available in the vault.
 	// This method is used to display the complete list of prompts to users
-	// in interactive deletion modes. Returns an error if the listing fails.
-	ListForDeletion() ([]model.Prompt, error)
+	// in various interactive modes (list, delete, get). Returns an error if the listing fails.
+	ListPrompts() ([]model.Prompt, error)
 
-	// FilterForDeletion retrieves prompts that match the given keyword for deletion.
+	// FilterPrompts retrieves prompts that match the given keyword.
 	// The keyword is used to filter prompts by name, author, or description.
 	// Returns an empty slice if no prompts match the keyword, or an error if filtering fails.
-	FilterForDeletion(keyword string) ([]model.Prompt, error)
+	FilterPrompts(keyword string) ([]model.Prompt, error)
+
+	// GetPromptByURL retrieves a specific prompt by its GitHub Gist URL.
+	// The gistURL should be a valid GitHub Gist URL (e.g., https://gist.github.com/user/gist_id).
+	// Returns the prompt if found, or an error if the URL format is invalid or the prompt is not found.
+	GetPromptByURL(gistURL string) (*model.Prompt, error)
+
+	// GetPromptContent retrieves the actual content (YAML file content) of a prompt from GitHub Gist.
+	// The prompt parameter should contain a valid ID that corresponds to a GitHub Gist ID.
+	// Returns the raw content string of the prompt or an error if the content cannot be retrieved.
+	GetPromptContent(prompt *model.Prompt) (string, error)
 }

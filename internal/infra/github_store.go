@@ -471,3 +471,27 @@ func (g *GitHubStore) Get(keyword string) ([]model.Prompt, error) {
 	return matchingPrompts, nil
 }
 
+// GetContent retrieves the actual content of a prompt from its GitHub Gist
+func (g *GitHubStore) GetContent(gistID string) (string, error) {
+	if err := g.ensureInitialized(); err != nil {
+		return "", err
+	}
+
+	ctx := context.Background()
+
+	// Get the gist
+	gist, _, err := g.client.Gists.Get(ctx, gistID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get gist %s: %w", gistID, err)
+	}
+
+	// Find the prompt file (should be a .yaml file)
+	for filename, file := range gist.Files {
+		if strings.HasSuffix(string(filename), ".yaml") {
+			return file.GetContent(), nil
+		}
+	}
+
+	return "", fmt.Errorf("no .yaml file found in gist %s", gistID)
+}
+

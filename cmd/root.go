@@ -8,7 +8,7 @@ import (
 
 type RootCmd = *cobra.Command
 
-func NewRootCommand(lc ListCmd, addCmd AddCmd, deleteCmd DeleteCmd, authCmd AuthCmd) RootCmd {
+func NewRootCommand(lc ListCmd, addCmd AddCmd, deleteCmd DeleteCmd, getCmd GetCmd, authCmd AuthCmd) RootCmd {
 	root := &cobra.Command{
 		Use:   "pv",
 		Short: "Prompt Vault CLI",
@@ -16,7 +16,7 @@ func NewRootCommand(lc ListCmd, addCmd AddCmd, deleteCmd DeleteCmd, authCmd Auth
 			fmt.Println("Hello, pv!")
 		},
 	}
-	root.AddCommand(lc, addCmd, deleteCmd, authCmd)
+	root.AddCommand(lc, addCmd, deleteCmd, getCmd, authCmd)
 	
 	// Create 'del' alias for delete command
 	delCmd := &cobra.Command{

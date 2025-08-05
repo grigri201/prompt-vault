@@ -3,7 +3,7 @@ package tui
 import "github.com/grigri/pv/internal/model"
 
 // TUIInterface defines the contract for terminal user interface operations
-// related to prompt deletion functionality. This interface enables both
+// related to prompt management functionality. This interface enables both
 // production bubbletea implementations and test mock implementations.
 type TUIInterface interface {
 	// ShowPromptList displays a list of prompts in an interactive interface
@@ -15,6 +15,11 @@ type TUIInterface interface {
 	// and returns true if the user confirms the deletion, false if cancelled.
 	// Returns an error if there's an interface error.
 	ShowConfirm(prompt model.Prompt) (bool, error)
+
+	// ShowVariableForm displays a form for collecting variable values from the user.
+	// Takes a list of variable names and returns a map of variable names to values.
+	// Returns an error if the user cancels the operation or if there's an interface error.
+	ShowVariableForm(variables []string) (map[string]string, error)
 }
 
 // ListMode represents different modes for displaying prompt lists
@@ -88,6 +93,13 @@ const (
 	ConfirmDialogWidth  = 60
 	ConfirmDialogHeight = 10
 
+	// Variable form settings
+	VariableFormWidth      = 70
+	VariableFormMinHeight  = 15
+	VariableInputWidth     = 50
+	VariableLabelWidth     = 15
+	MaxVariableNameLength  = 30
+
 	// Colors and styling (compatible with lipgloss)
 	ColorPrimary   = "#00D4AA"
 	ColorSecondary = "#7C7C7C"
@@ -114,6 +126,7 @@ const (
 const (
 	HelpTextListNavigation = "↑/↓: 导航  Enter: 选择  q: 退出"
 	HelpTextConfirmation   = "Y: 确认  N: 取消  Esc: 取消"
+	HelpTextVariableForm   = "Tab/↓: 下一字段  Shift+Tab/↑: 上一字段  Enter: 确认  Esc: 取消"
 	HelpTextGeneral        = "按 q 退出"
 	HelpTextLoading        = "正在加载..."
 )

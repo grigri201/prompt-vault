@@ -34,6 +34,13 @@ var ServiceSet = wire.NewSet(
 	service.NewPromptService,
 )
 
+// GetCommandSet provides components specific to the get command
+var GetCommandSet = wire.NewSet(
+	ProvideClipboardUtil,
+	ProvideVariableParser,
+	ProvideTUIInterface,
+)
+
 // CommandSet provides CLI commands
 var CommandSet = wire.NewSet(
 	ProvideCommands,
@@ -41,6 +48,6 @@ var CommandSet = wire.NewSet(
 )
 
 func BuildCLI() (*cobra.Command, error) {
-	wire.Build(InfraSet, AuthSet, ServiceSet, CommandSet)
+	wire.Build(InfraSet, AuthSet, ServiceSet, GetCommandSet, CommandSet)
 	return nil, nil
 }

@@ -34,7 +34,7 @@ func testServiceLayerIntegration(t *testing.T) {
 	testEnv := setupIntegrationTestEnvironment(t)
 	defer testEnv.cleanup()
 
-	// Test ListForDeletion service method
+	// Test ListPrompts service method
 	prompts := []model.Prompt{
 		createTestPrompt("1", "AI Assistant", "dev1", createValidGistURL("1234567890abcdef1234")),
 		createTestPrompt("2", "Code Review", "dev2", createValidGistURL("abcdef1234567890abcd")),
@@ -48,19 +48,19 @@ func testServiceLayerIntegration(t *testing.T) {
 		}
 	}
 
-	// Test ListForDeletion
-	listedPrompts, err := testEnv.service.ListForDeletion()
+	// Test ListPrompts
+	listedPrompts, err := testEnv.service.ListPrompts()
 	if err != nil {
-		t.Errorf("ListForDeletion failed: %v", err)
+		t.Errorf("ListPrompts failed: %v", err)
 	}
 	if len(listedPrompts) != 2 {
 		t.Errorf("Expected 2 prompts, got %d", len(listedPrompts))
 	}
 
-	// Test FilterForDeletion
-	filteredPrompts, err := testEnv.service.FilterForDeletion("AI")
+	// Test FilterPrompts
+	filteredPrompts, err := testEnv.service.FilterPrompts("AI")
 	if err != nil {
-		t.Errorf("FilterForDeletion failed: %v", err)
+		t.Errorf("FilterPrompts failed: %v", err)
 	}
 	if len(filteredPrompts) != 1 {
 		t.Errorf("Expected 1 filtered prompt, got %d", len(filteredPrompts))
@@ -135,7 +135,7 @@ func testStoreIntegration(t *testing.T) {
 		t.Fatalf("Store Add failed: %v", err)
 	}
 
-	// Test List operation (used by ListForDeletion)
+	// Test List operation (used by ListPrompts)
 	prompts, err := testEnv.store.List()
 	if err != nil {
 		t.Errorf("Store List failed: %v", err)
@@ -144,7 +144,7 @@ func testStoreIntegration(t *testing.T) {
 		t.Errorf("Expected 1 prompt after Add, got %d", len(prompts))
 	}
 
-	// Test Get operation (used by FilterForDeletion and URL search)
+	// Test Get operation (used by FilterPrompts and URL search)
 	foundPrompts, err := testEnv.store.Get("Store")
 	if err != nil {
 		t.Errorf("Store Get failed: %v", err)
@@ -420,6 +420,12 @@ func (m *MockGitHubStore) Get(query string) ([]model.Prompt, error) {
 	return result, nil
 }
 
+// GetContent implements the missing Store method for testing
+func (m *MockGitHubStore) GetContent(gistID string) (string, error) {
+	// This method is not used by integration tests but required by interface
+	return "", nil
+}
+
 // Reset resets the mock store to initial state
 func (m *MockGitHubStore) Reset() {
 	m.prompts = make(map[string]model.Prompt)
@@ -515,7 +521,7 @@ func BenchmarkDeleteWorkflow(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Test service operations that are core to delete functionality
-		env.service.ListForDeletion()
-		env.service.FilterForDeletion("benchmark")
+		env.service.ListPrompts()
+		env.service.FilterPrompts("benchmark")
 	}
 }

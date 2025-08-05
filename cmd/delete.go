@@ -163,8 +163,8 @@ func (dc *delete) extractGistID(url string) string {
 func (dc *delete) handleInteractiveMode() {
 	fmt.Println("🔄 Interactive mode - loading all prompts...")
 	
-	// Step 1: Call promptService.ListForDeletion() to get all prompts
-	prompts, err := dc.promptService.ListForDeletion()
+	// Step 1: Call promptService.ListPrompts() to get all prompts
+	prompts, err := dc.promptService.ListPrompts()
 	if err != nil {
 		fmt.Printf("❌ Error loading prompts: %v\n", err)
 		return
@@ -252,8 +252,8 @@ func (dc *delete) handleInteractiveMode() {
 func (dc *delete) handleFilterMode(keyword string) {
 	fmt.Printf("🔄 Filter mode - searching for prompts matching '%s'...\n", keyword)
 	
-	// Step 1: Call promptService.FilterForDeletion(keyword) to filter prompts
-	filteredPrompts, err := dc.promptService.FilterForDeletion(keyword)
+	// Step 1: Call promptService.FilterPrompts(keyword) to filter prompts
+	filteredPrompts, err := dc.promptService.FilterPrompts(keyword)
 	if err != nil {
 		fmt.Printf("❌ Error filtering prompts: %v\n", err)
 		fmt.Println()

@@ -189,6 +189,59 @@ func (tui *BubbleTeaTUI) ShowConfirm(prompt model.Prompt) (bool, error) {
 	return false, fmt.Errorf("%s: invalid model type", ErrMsgTUIInitFailed)
 }
 
+// ShowVariableForm displays a form for collecting variable values from the user.
+// This method implements the variable input functionality for the get command.
+func (tui *BubbleTeaTUI) ShowVariableForm(variables []string) (map[string]string, error) {
+	// Handle empty variable list
+	if len(variables) == 0 {
+		return make(map[string]string), nil
+	}
+
+	// Create the variable form model
+	formModel := NewVariableFormModel(variables)
+
+	// Configure program options
+	var options []tea.ProgramOption
+	if tui.altScreen {
+		options = append(options, tea.WithAltScreen())
+	}
+	if tui.mouseEnabled {
+		options = append(options, tea.WithMouseCellMotion())
+	}
+
+	// Create and run the bubbletea program
+	program := tea.NewProgram(formModel, options...)
+	
+	finalModel, err := program.Run()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", ErrMsgTUIRenderFailed, err)
+	}
+
+	// Extract the final state from the model
+	if variableFormModel, ok := finalModel.(VariableFormModel); ok {
+		// Check if user cancelled
+		if variableFormModel.IsCancelled() {
+			return nil, fmt.Errorf(ErrMsgUserCancelled)
+		}
+
+		// Check for errors during execution
+		if err := variableFormModel.GetError(); err != nil {
+			return nil, fmt.Errorf("%s: %w", ErrMsgTUIRenderFailed, err)
+		}
+
+		// Check if form was completed
+		if variableFormModel.IsDone() {
+			return variableFormModel.GetValues(), nil
+		}
+
+		// Form was not completed (should not happen if not cancelled)
+		return nil, fmt.Errorf(ErrMsgInvalidSelection)
+	}
+
+	// Model type assertion failed
+	return nil, fmt.Errorf("%s: invalid model type", ErrMsgTUIInitFailed)
+}
+
 // ShowError displays an error message to the user using the ErrorModel.
 // This is a helper method for displaying errors in a consistent TUI format.
 func (tui *BubbleTeaTUI) ShowError(err error) error {
