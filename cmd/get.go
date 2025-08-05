@@ -19,6 +19,7 @@ type get struct {
 	clipboardUtil  clipboard.Util
 	variableParser variable.Parser
 	tuiInterface   tui.TUIInterface
+	usingCache     bool // Flag to track if we're operating in cache mode
 }
 
 func (g *get) execute(cmd *cobra.Command, args []string) {
@@ -365,6 +366,11 @@ func (g *get) copyToClipboard(content, promptName string) {
 	// Success message
 	fmt.Printf("✅ Successfully copied prompt '%s' to clipboard!\n", promptName)
 	fmt.Printf("   Content length: %d characters\n", len(content))
+	if g.usingCache {
+		fmt.Println("   Data source: Local cache")
+	} else {
+		fmt.Println("   Data source: Remote (latest)")
+	}
 	fmt.Println()
 	fmt.Println("💡 The prompt is now ready to paste into your target application.")
 }
@@ -381,6 +387,7 @@ func NewGetCommand(
 		clipboardUtil:  clipboardUtil,
 		variableParser: variableParser,
 		tuiInterface:   tuiInterface,
+		usingCache:     false, // Initialize cache mode flag
 	}
 
 	return &cobra.Command{
