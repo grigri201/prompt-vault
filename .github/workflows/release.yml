@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-and-upload:
+    name: Build and Upload Release Assets
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            asset_name: pv-linux-amd64
+          - goos: linux
+            goarch: arm64
+            asset_name: pv-linux-arm64
+          - goos: darwin
+            goarch: amd64
+            asset_name: pv-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            asset_name: pv-darwin-arm64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24.x'
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: make test-all
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        VERSION: ${{ github.ref_name }}
+        BUILD_TIME: ${{ github.run_started_at }}
+        GIT_COMMIT: ${{ github.sha }}
+      run: |
+        LDFLAGS="-ldflags \"-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.GitCommit=${GIT_COMMIT:0:7}\""
+        go build ${LDFLAGS} -o ${{ matrix.asset_name }} .
+
+    - name: Generate checksum
+      run: |
+        sha256sum ${{ matrix.asset_name }} > ${{ matrix.asset_name }}.sha256
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./${{ matrix.asset_name }}
+        asset_name: ${{ matrix.asset_name }}
+        asset_content_type: application/octet-stream
+
+    - name: Upload Checksum
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./${{ matrix.asset_name }}.sha256
+        asset_name: ${{ matrix.asset_name }}.sha256
+        asset_content_type: text/plain
