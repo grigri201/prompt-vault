@@ -16,12 +16,18 @@ This is Phase 3 of the bug fix workflow. Your goal is to implement the fix while
 
 You are working on the fix implementation phase of the bug fix workflow.
 
-1. **Prerequisites**
+1. **Prerequisites & Context Loading**
    - Ensure analysis.md exists and is approved
-   - Load report.md and analysis.md for complete context
-   - **Load steering documents**: 
-     - Load .claude/steering/tech.md for technical patterns
-     - Load .claude/steering/structure.md for project conventions
+
+   **Load ALL Context Once (Hierarchical Context Loading):**
+   ```bash
+   # Load steering documents (if available)
+   claude-code-spec-workflow get-steering-context
+   ```
+
+   **Bug documents to read directly:**
+   - `.claude/bugs/{bug-name}/report.md`
+   - `.claude/bugs/{bug-name}/analysis.md`
    - Understand the planned fix approach completely
 
 2. **Implementation Process**
@@ -99,7 +105,9 @@ You are working on the fix implementation phase of the bug fix workflow.
 4. **Confirm Completion**
    - Present summary of changes made
    - Show test results confirming fix
-   - Ask: "The fix has been implemented. Should we proceed to verification?"
+
+5. **Final Confirmation**
+   - Ask: "The fix has been implemented and reviewed. Should we proceed to verification?"
    - **CRITICAL**: Wait for user approval before proceeding
 
 ## Critical Rules

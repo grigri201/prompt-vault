@@ -9,4 +9,5 @@ type Prompt struct {
 	Tags        []string `json:"tags"`
 	Version     string   `json:"version"`
 	Content     string   `json:"content"`
+	Parent      *string  `json:"parent,omitempty"`  // 新增：父级 Prompt 的 gist URL
 }

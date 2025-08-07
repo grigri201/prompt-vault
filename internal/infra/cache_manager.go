@@ -179,6 +179,11 @@ func (c *CacheManager) GetCacheInfo() (*model.CacheInfo, error) {
 	return info, nil
 }
 
+// GetCacheDir returns the cache directory path
+func (c *CacheManager) GetCacheDir() string {
+	return c.cacheDir
+}
+
 // calculateDirectorySize recursively calculates the total size of a directory
 // Returns total size in bytes or error if directory traversal fails
 func (c *CacheManager) calculateDirectorySize(dirPath string) (int64, error) {

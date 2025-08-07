@@ -30,6 +30,7 @@ type Commands struct {
 	GetCmd    *cobra.Command
 	SyncCmd   *cobra.Command
 	AuthCmd   *cobra.Command
+	ShareCmd  *cobra.Command
 }
 
 // ProvideCommands provides all commands
@@ -48,6 +49,7 @@ func ProvideCommands(
 	getCmd := cmd.NewGetCommand(promptService, clipboardUtil, variableParser, tuiInterface)
 	syncCmd := cmd.NewSyncCommand(promptService)
 	authCmd := ProvideAuthCommands(authService)
+	shareCmd := cmd.NewShareCommand(promptService, tuiInterface)
 	return Commands{
 		ListCmd:   listCmd,
 		AddCmd:    addCmd,
@@ -55,6 +57,7 @@ func ProvideCommands(
 		GetCmd:    getCmd,
 		SyncCmd:   syncCmd,
 		AuthCmd:   authCmd,
+		ShareCmd:  shareCmd,
 	}
 }
 
@@ -104,5 +107,5 @@ func ProvideCachedStore(gitHubStore *infra.GitHubStore, cacheManager *infra.Cach
 
 // ProvideRootCommand provides the root command with all subcommands
 func ProvideRootCommand(commands Commands) *cobra.Command {
-	return cmd.NewRootCommand(commands.ListCmd, commands.AddCmd, commands.DeleteCmd, commands.GetCmd, commands.SyncCmd, commands.AuthCmd)
+	return cmd.NewRootCommand(commands.ListCmd, commands.AddCmd, commands.DeleteCmd, commands.GetCmd, commands.SyncCmd, commands.AuthCmd, commands.ShareCmd)
 }

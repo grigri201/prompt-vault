@@ -13,12 +13,19 @@ import (
 
 // MockStore implements the Store interface for testing
 type MockStore struct {
-	listFunc       func() ([]model.Prompt, error)
-	addFunc        func(model.Prompt) error
-	deleteFunc     func(string) error
-	updateFunc     func(model.Prompt) error
-	getFunc        func(string) ([]model.Prompt, error)
-	getContentFunc func(string) (string, error)
+	listFunc                  func() ([]model.Prompt, error)
+	addFunc                   func(model.Prompt) error
+	deleteFunc                func(string) error
+	updateFunc                func(model.Prompt) error
+	getFunc                   func(string) ([]model.Prompt, error)
+	getContentFunc            func(string) (string, error)
+	createPublicGistFunc      func(model.Prompt) (string, error)
+	updateGistFunc            func(string, model.Prompt) error
+	getGistInfoFunc           func(string) (*GistInfo, error)
+	addExportFunc             func(model.IndexedPrompt) error
+	updateExportFunc          func(model.IndexedPrompt) error
+	getExportsFunc            func() ([]model.IndexedPrompt, error)
+	findExistingPromptByURLFunc func(string) (*model.Prompt, error)
 }
 
 func (m *MockStore) List() ([]model.Prompt, error) {
@@ -61,6 +68,55 @@ func (m *MockStore) GetContent(gistID string) (string, error) {
 		return m.getContentFunc(gistID)
 	}
 	return "", errors.New("not implemented")
+}
+
+func (m *MockStore) CreatePublicGist(prompt model.Prompt) (string, error) {
+	if m.createPublicGistFunc != nil {
+		return m.createPublicGistFunc(prompt)
+	}
+	return "", errors.New("not implemented")
+}
+
+func (m *MockStore) UpdateGist(gistURL string, prompt model.Prompt) error {
+	if m.updateGistFunc != nil {
+		return m.updateGistFunc(gistURL, prompt)
+	}
+	return errors.New("not implemented")
+}
+
+func (m *MockStore) GetGistInfo(gistURL string) (*GistInfo, error) {
+	if m.getGistInfoFunc != nil {
+		return m.getGistInfoFunc(gistURL)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockStore) AddExport(prompt model.IndexedPrompt) error {
+	if m.addExportFunc != nil {
+		return m.addExportFunc(prompt)
+	}
+	return errors.New("not implemented")
+}
+
+func (m *MockStore) UpdateExport(prompt model.IndexedPrompt) error {
+	if m.updateExportFunc != nil {
+		return m.updateExportFunc(prompt)
+	}
+	return errors.New("not implemented")
+}
+
+func (m *MockStore) GetExports() ([]model.IndexedPrompt, error) {
+	if m.getExportsFunc != nil {
+		return m.getExportsFunc()
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockStore) FindExistingPromptByURL(gistURL string) (*model.Prompt, error) {
+	if m.findExistingPromptByURLFunc != nil {
+		return m.findExistingPromptByURLFunc(gistURL)
+	}
+	return nil, errors.New("not implemented")
 }
 
 // MockConfigStore implements config.Store for testing

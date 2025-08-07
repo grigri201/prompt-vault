@@ -2,6 +2,16 @@ package service
 
 import "github.com/grigri/pv/internal/model"
 
+// GistInfo 包含 Gist 的基本信息
+type GistInfo struct {
+	ID          string
+	URL         string
+	IsPublic    bool
+	HasAccess   bool
+	Description string
+	Owner       string
+}
+
 // PromptService defines the interface for prompt business logic operations
 type PromptService interface {
 	// AddFromFile adds a prompt from a YAML file to the vault
@@ -36,4 +46,34 @@ type PromptService interface {
 	// The prompt parameter should contain a valid ID that corresponds to a GitHub Gist ID.
 	// Returns the raw content string of the prompt or an error if the content cannot be retrieved.
 	GetPromptContent(prompt *model.Prompt) (string, error)
+
+	// SharePrompt shares a private prompt by creating a public gist.
+	// If the prompt has already been shared, updates the existing public gist.
+	// Returns the shared prompt with the public gist URL, or an error if sharing fails.
+	SharePrompt(prompt *model.Prompt) (*model.Prompt, error)
+
+	// AddFromURL adds a prompt from a public GitHub Gist URL.
+	// Validates that the gist is public and contains valid prompt format.
+	// Returns the added prompt or an error if the URL is invalid or gist is not accessible.
+	AddFromURL(gistURL string) (*model.Prompt, error)
+
+	// ValidateGistAccess validates user access to a gist and returns its information.
+	// Checks if the user has read/write access and whether the gist is public or private.
+	// Returns gist information or an error if access validation fails.
+	ValidateGistAccess(gistURL string) (*GistInfo, error)
+
+	// ListPrivatePrompts retrieves all private prompts available in the vault.
+	// Filters the complete prompt list to show only private gists.
+	// Used in share command interactive mode. Returns an error if listing fails.
+	ListPrivatePrompts() ([]model.Prompt, error)
+
+	// FilterPrivatePrompts retrieves private prompts that match the given keyword.
+	// Similar to FilterPrompts but only returns private gists matching the keyword.
+	// Used in share command keyword filtering mode. Returns an error if filtering fails.
+	// Sync synchronizes the local cache with GitHub, downloading the raw index.json file.
+	// This ensures the local cache has the complete and up-to-date index from GitHub.
+	// Returns an error if the synchronization fails.
+	Sync() error
+
+	FilterPrivatePrompts(keyword string) ([]model.Prompt, error)
 }

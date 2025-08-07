@@ -27,6 +27,24 @@ var (
 		Type:    ErrValidation,
 		Message: "Invalid metadata",
 	}
+
+	// ErrGistNotPublic is returned when trying to import from a private gist
+	ErrGistNotPublicFromURL = AppError{
+		Type:    ErrValidation,
+		Message: "只能导入公开的 Gist",
+	}
+
+	// ErrInvalidPromptFormat is returned when imported gist content is not valid prompt format
+	ErrInvalidPromptFormatFromURL = AppError{
+		Type:    ErrValidation,
+		Message: "无效的 Prompt 格式",
+	}
+
+	// ErrPromptAlreadyExists is returned when trying to add a prompt that already exists
+	ErrPromptAlreadyExists = AppError{
+		Type:    ErrValidation,
+		Message: "该 Gist URL 对应的提示词已存在",
+	}
 )
 
 // ValidationError represents a validation error with specific field information

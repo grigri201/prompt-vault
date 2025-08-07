@@ -16,9 +16,18 @@ This is Phase 4 (final) of the bug fix workflow. Your goal is to confirm the bug
 
 You are working on the verification phase of the bug fix workflow.
 
-1. **Prerequisites**
+1. **Prerequisites & Context Loading**
    - Ensure the fix has been implemented
-   - Load report.md, analysis.md for context
+
+   **Load ALL Context Once (Hierarchical Context Loading):**
+   ```bash
+   # Load bug templates for verification structure
+   claude-code-spec-workflow get-template-context bug
+   ```
+
+   **Bug documents to read directly:**
+   - `.claude/bugs/{bug-name}/report.md`
+   - `.claude/bugs/{bug-name}/analysis.md`
    - Understand what was changed and why
    - Have the verification plan from analysis.md
 
@@ -49,17 +58,16 @@ You are working on the verification phase of the bug fix workflow.
    - **Code Quality**: Changes follow project conventions
 
 4. **Create Verification Document**
-   - **Template to Follow**: Use the exact structure from `.claude/templates/bug-verification-template.md`
-   - **Read and follow**: Load the template and follow all sections precisely
-   - Document all test results following the template structure
+   - **Template to Follow**: Use the bug verification template from the pre-loaded context above (do not reload)
+   - Document all test results following the bug verification template structure
 
 ## Template Usage
-- **Follow exact structure**: Use `.claude/templates/bug-verification-template.md` precisely
+- **Follow exact structure**: Use loaded verification template precisely
 - **Include all sections**: Don't omit any required template sections
 - **Complete checklist**: Follow the template's checklist format for thoroughness
 
 5. **Final Approval**
-   - Present complete verification results
+   - Present complete verification results (manual and automated if available)
    - Show that all checks pass
    - Ask: "The bug fix has been verified successfully. Is this bug resolved?"
    - Get final confirmation before closing

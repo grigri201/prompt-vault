@@ -38,7 +38,43 @@ func (sc *sync) execute(cmd *cobra.Command, args []string) {
 	// Get verbose flag for detailed output
 	verbose, _ := cmd.Flags().GetBool("verbose")
 
-	// Step 1: Get list of all prompts to sync
+	// Step 1: Sync raw index.json first
+	fmt.Println("📥 正在同步索引文件...")
+	
+	if err := sc.promptService.Sync(); err != nil {
+		// Handle different types of errors with user-friendly messages
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) {
+			switch appErr.Type {
+			case apperrors.ErrAuth:
+				fmt.Printf("❌ 认证错误: %s\n", appErr.Message)
+				fmt.Println()
+				fmt.Println("请运行 'pv auth login' 重新登录 GitHub。")
+				return
+			case apperrors.ErrNetwork:
+				fmt.Printf("❌ 网络错误: %s\n", appErr.Message)
+				fmt.Println()
+				fmt.Println("请检查网络连接后重试。")
+				return
+			default:
+				fmt.Printf("❌ 索引同步失败: %s\n", appErr.Message)
+				fmt.Println()
+				fmt.Println("请检查网络连接和 GitHub 认证状态。")
+				return
+			}
+		}
+
+		// For other unexpected errors, show the original error and exit
+		fmt.Printf("❌ 索引同步失败: %v\n", err)
+		fmt.Println()
+		fmt.Println("请检查网络连接和 GitHub 认证状态。")
+		return
+	}
+	
+	fmt.Println("  ✅ 索引同步成功")
+	fmt.Println()
+
+	// Step 2: Get list of all prompts to sync
 	prompts, err := sc.promptService.ListPrompts()
 	if err != nil {
 		// Handle different types of errors with user-friendly messages
@@ -79,7 +115,7 @@ func (sc *sync) execute(cmd *cobra.Command, args []string) {
 	fmt.Printf("📋 发现 %d 个提示词需要同步\n", stats.Total)
 	fmt.Println()
 
-	// Step 2: Serial download of prompt content with progress display
+	// Step 3: Serial download of prompt content with progress display
 	for i, prompt := range prompts {
 		// Display progress in the exact format specified: "正在下载 X/Y"
 		fmt.Printf("⬇️  正在下载 %d/%d: %s", i+1, stats.Total, prompt.Name)

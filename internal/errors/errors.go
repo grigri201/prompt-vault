@@ -18,6 +18,8 @@ const (
 	ErrValidation
 	// ErrPermission is for permission related errors
 	ErrPermission
+	// ErrNotFound is for not found errors
+	ErrNotFound
 )
 
 // AppError represents an application error

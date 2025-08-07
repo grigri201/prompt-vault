@@ -101,6 +101,39 @@ func (m *MockStore) GetContent(gistID string) (string, error) {
 	return "metadata:\n  name: Test Prompt\n  author: Test Author\nprompt: Test content", nil
 }
 
+func (m *MockStore) CreatePublicGist(prompt model.Prompt) (string, error) {
+	return "https://gist.github.com/test/123", nil
+}
+
+func (m *MockStore) UpdateGist(gistURL string, prompt model.Prompt) error {
+	return nil
+}
+
+func (m *MockStore) GetGistInfo(gistURL string) (*infra.GistInfo, error) {
+	return &infra.GistInfo{
+		ID:        "123",
+		URL:       gistURL,
+		IsPublic:  true,
+		HasAccess: true,
+	}, nil
+}
+
+func (m *MockStore) AddExport(prompt model.IndexedPrompt) error {
+	return nil
+}
+
+func (m *MockStore) UpdateExport(prompt model.IndexedPrompt) error {
+	return nil
+}
+
+func (m *MockStore) GetExports() ([]model.IndexedPrompt, error) {
+	return []model.IndexedPrompt{}, nil
+}
+
+func (m *MockStore) FindExistingPromptByURL(gistURL string) (*model.Prompt, error) {
+	return nil, nil
+}
+
 // MockYAMLValidator is a mock implementation of validator.YAMLValidator for testing
 type MockYAMLValidator struct {
 	validatePromptFileFunc func(content []byte) (*validator.PromptFileContent, error)

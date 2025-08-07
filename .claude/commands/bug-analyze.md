@@ -14,41 +14,21 @@ This is Phase 2 of the bug fix workflow. Your goal is to understand why the bug 
 
 ## Instructions
 
-**Agent-Based Analysis (Recommended)**: First check if agents are enabled:
-
-```bash
-npx @pimzino/claude-code-spec-workflow@latest using-agents
-```
-
-If this returns `true`, use the `bug-root-cause-analyzer` agent for comprehensive root cause analysis:
-
-```
-Use the bug-root-cause-analyzer agent to perform enhanced root cause analysis for the {bug-name} bug.
-
-The agent should:
-1. Load the bug report from .claude/bugs/{bug-name}/report.md
-2. Perform git archaeology to find when the bug was introduced
-3. Analyze git history for similar issues and patterns
-4. Investigate code context and evolution
-5. Assess impact and relationships
-6. Develop prevention strategies
-7. Provide comprehensive analysis with fix recommendations
-
-Context for analysis:
-- Bug report with symptoms and reproduction steps
-- Git history for pattern recognition
-- Related code and its evolution
-- Similar historical issues and fixes
-```
-
-**Manual Analysis (Fallback)**: If agents are not enabled, follow this process:
+**Manual Analysis Process**:
 
 1. **Prerequisites**
    - Ensure report.md exists and is complete
    - Load the bug report for context
    - **Load steering documents**: 
-     - Check for .claude/steering/tech.md for technical patterns
-     - Check for .claude/steering/structure.md for project organization
+     ```bash
+     # Windows:
+     claude-code-spec-workflow get-content "C:\path\to\project\.claude\steering\tech.md"
+     claude-code-spec-workflow get-content "C:\path\to\project\.claude\steering\structure.md"
+     
+     # macOS/Linux:
+     claude-code-spec-workflow get-content "/path/to/project/.claude/steering/tech.md"
+     claude-code-spec-workflow get-content "/path/to/project/.claude/steering/structure.md"
+     ```
    - Understand the reported issue completely
 
 2. **Investigation Process**
@@ -71,8 +51,8 @@ Context for analysis:
       - Identify potential risks
 
 3. **Create Analysis Document**
-   - **Template to Follow**: Use the exact structure from `.claude/templates/bug-analysis-template.md`
-   - **Read and follow**: Load the template and follow all sections precisely
+   - **Template to Follow**: Use the bug analysis template from the pre-loaded context above (do not reload)
+   - **Read and follow**: Use the bug analysis template and follow all sections precisely
    - Document investigation findings following the template structure
 
 ## Template Usage

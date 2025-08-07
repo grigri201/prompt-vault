@@ -107,6 +107,32 @@ func (m *MockPromptService) GetPromptContent(prompt *model.Prompt) (string, erro
 	return "", nil
 }
 
+func (m *MockPromptService) AddFromURL(gistURL string) (*model.Prompt, error) {
+	return nil, errors.NewAppError(errors.ErrValidation, "not implemented", nil)
+}
+
+func (m *MockPromptService) FilterPrivatePrompts(keyword string) ([]model.Prompt, error) {
+	return nil, errors.NewAppError(errors.ErrValidation, "not implemented", nil)
+}
+
+func (m *MockPromptService) SharePrompt(prompt *model.Prompt) (*model.Prompt, error) {
+	return nil, errors.NewAppError(errors.ErrValidation, "not implemented", nil)
+}
+
+func (m *MockPromptService) ValidateGistAccess(gistURL string) (*service.GistInfo, error) {
+	return &service.GistInfo{}, nil
+}
+
+func (m *MockPromptService) ListPrivatePrompts() ([]model.Prompt, error) {
+	return nil, errors.NewAppError(errors.ErrValidation, "not implemented", nil)
+}
+
+// Sync implements the PromptService interface for testing
+func (m *MockPromptService) Sync() error {
+	// This method is not used by delete command but required by interface
+	return nil
+}
+
 func (m *MockPromptService) Reset() {
 	m.addFromFileResult = nil
 	m.addFromFileError = nil
@@ -206,6 +232,39 @@ func (m *MockStore) Get(keyword string) ([]model.Prompt, error) {
 func (m *MockStore) GetContent(gistID string) (string, error) {
 	// This method is not used by delete command but required by interface
 	return "", nil
+}
+
+func (m *MockStore) CreatePublicGist(prompt model.Prompt) (string, error) {
+	return "https://gist.github.com/test/123", nil
+}
+
+func (m *MockStore) UpdateGist(gistURL string, prompt model.Prompt) error {
+	return nil
+}
+
+func (m *MockStore) GetGistInfo(gistURL string) (*infra.GistInfo, error) {
+	return &infra.GistInfo{
+		ID:        "123",
+		URL:       gistURL,
+		IsPublic:  true,
+		HasAccess: true,
+	}, nil
+}
+
+func (m *MockStore) AddExport(prompt model.IndexedPrompt) error {
+	return nil
+}
+
+func (m *MockStore) UpdateExport(prompt model.IndexedPrompt) error {
+	return nil
+}
+
+func (m *MockStore) GetExports() ([]model.IndexedPrompt, error) {
+	return []model.IndexedPrompt{}, nil
+}
+
+func (m *MockStore) FindExistingPromptByURL(gistURL string) (*model.Prompt, error) {
+	return nil, nil
 }
 
 // Test data helpers

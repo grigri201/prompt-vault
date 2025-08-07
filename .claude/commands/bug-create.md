@@ -25,10 +25,16 @@ You are helping create a new bug fix workflow. This is designed for smaller fixe
    - Create `.claude/bugs/{bug-name}/` directory
    - Initialize report.md, analysis.md, and verification.md files
 
-2. **Load Context** (if available)
-   - Check for .claude/steering/tech.md for technical context
-   - Check for .claude/steering/structure.md for project patterns
-   - Load available steering documents to understand project context
+2. **Load ALL Context Once (Hierarchical Context Loading)**
+   Load complete context at the beginning for the bug creation process:
+
+   ```bash
+   # Load steering documents (if available)
+   claude-code-spec-workflow get-steering-context
+
+   # Load bug templates
+   claude-code-spec-workflow get-template-context bug
+   ```
 
 3. **Gather Bug Information**
    - Take the bug name and optional description
@@ -36,12 +42,11 @@ You are helping create a new bug fix workflow. This is designed for smaller fixe
    - Use structured format for consistency
 
 4. **Generate Bug Report**
-   - **Template to Follow**: Use the exact structure from `.claude/templates/bug-report-template.md`
-   - **Read and follow**: Load the template and follow all sections precisely
-   - Create detailed bug description following the template structure
+   - **Template to Follow**: Use the bug report template from the pre-loaded context above (do not reload)
+   - Create detailed bug description following the bug report template structure
 
 ## Template Usage
-- **Follow exact structure**: Use `.claude/templates/bug-report-template.md` precisely
+- **Follow exact structure**: Use loaded bug report template precisely
 - **Include all sections**: Don't omit any required template sections
 - **Structured format**: Follow the template's format for consistency
 

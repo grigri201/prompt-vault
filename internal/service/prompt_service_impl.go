@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/grigri/pv/internal/errors"
 	"github.com/grigri/pv/internal/infra"
@@ -370,6 +371,301 @@ func (p *promptServiceImpl) GetPromptContent(prompt *model.Prompt) (string, erro
 
 	log.Printf("Successfully retrieved content for prompt: %s", prompt.Name)
 	return content, nil
+}
+
+// SharePrompt 实现分享私有 prompt 的完整流程
+func (p *promptServiceImpl) SharePrompt(prompt *model.Prompt) (*model.Prompt, error) {
+	// 0. 获取完整的 prompt 内容（因为传入的 prompt 可能只包含元数据）
+	completePrompt := prompt
+	if strings.TrimSpace(prompt.Content) == "" {
+		// 如果 Content 为空，说明只有元数据，需要获取完整内容
+		content, err := p.store.GetContent(prompt.ID)
+		if err != nil {
+			return nil, errors.NewShareError("获取完整内容", prompt.GistURL, err)
+		}
+		
+		// 解析 YAML 内容获取完整的 prompt 信息
+		parsedPrompt, err := p.parseYAMLContent(content, prompt.GistURL)
+		if err != nil {
+			return nil, errors.NewShareError("解析 prompt 内容", prompt.GistURL, err)
+		}
+		
+		// 合并元数据和内容
+		completePrompt = &model.Prompt{
+			ID:          prompt.ID,
+			Name:        prompt.Name,        // 优先使用原有的元数据
+			Author:      prompt.Author,      // 优先使用原有的元数据  
+			GistURL:     prompt.GistURL,
+			Description: parsedPrompt.Description,
+			Tags:        parsedPrompt.Tags,
+			Version:     parsedPrompt.Version,
+			Content:     content,            // 完整的原始内容
+			Parent:      prompt.Parent,
+		}
+	}
+	
+	// 1. 验证访问权限
+	gistInfo, err := p.store.GetGistInfo(completePrompt.GistURL)
+	if err != nil {
+		return nil, errors.NewShareError("验证访问权限", completePrompt.GistURL, err)
+	}
+	
+	if gistInfo.IsPublic {
+		return nil, errors.ErrGistAlreadyPublic
+	}
+	
+	if !gistInfo.HasAccess {
+		return nil, errors.ErrGistAccessDenied
+	}
+	
+	// 2. 检查现有导出
+	exports, err := p.store.GetExports()
+	if err != nil {
+		return nil, err
+	}
+	
+	var existingExport *model.IndexedPrompt
+	for _, export := range exports {
+		if export.Parent != nil && *export.Parent == completePrompt.GistURL {
+			exportCopy := export // 避免循环变量地址问题
+			existingExport = &exportCopy
+			break
+		}
+	}
+	
+	// 3. 创建或更新公开 Gist
+	var gistURL string
+	var sharedPrompt *model.Prompt
+	
+	if existingExport != nil {
+		// 更新现有公开 gist 的内容
+		err = p.store.UpdateGist(existingExport.GistURL, *completePrompt)
+		if err != nil {
+			return nil, err
+		}
+		gistURL = existingExport.GistURL
+		
+		// 更新导出记录的时间戳
+		existingExport.LastUpdated = time.Now()
+		err = p.store.UpdateExport(*existingExport)
+		if err != nil {
+			return nil, err
+		}
+		
+		// 转换为完整的 Prompt 对象返回
+		sharedPrompt = &model.Prompt{
+			ID:          p.extractGistID(gistURL),
+			Name:        existingExport.Name,
+			Author:      existingExport.Author,
+			GistURL:     gistURL,
+			Description: completePrompt.Description,
+			Tags:        completePrompt.Tags,
+			Version:     completePrompt.Version,
+			Content:     completePrompt.Content,
+			Parent:      existingExport.Parent,
+		}
+	} else {
+		// 创建新的公开 gist
+		gistURL, err = p.store.CreatePublicGist(*completePrompt)
+		if err != nil {
+			return nil, err
+		}
+		
+		// 创建新的导出记录
+		exportRecord := model.IndexedPrompt{
+			GistURL:     gistURL,
+			FilePath:    "", // exports 不需要本地文件路径
+			Author:      completePrompt.Author,
+			Name:        completePrompt.Name,
+			LastUpdated: time.Now(),
+			Parent:      &completePrompt.GistURL,
+		}
+		
+		err = p.store.AddExport(exportRecord)
+		if err != nil {
+			return nil, err
+		}
+		
+		// 返回完整的 Prompt 对象
+		sharedPrompt = &model.Prompt{
+			ID:          p.extractGistID(gistURL),
+			Name:        completePrompt.Name,
+			Author:      completePrompt.Author,
+			GistURL:     gistURL,
+			Description: completePrompt.Description,
+			Tags:        completePrompt.Tags,
+			Version:     completePrompt.Version,
+			Content:     completePrompt.Content,
+			Parent:      &completePrompt.GistURL,
+		}
+	}
+	
+	return sharedPrompt, nil
+}
+
+// AddFromURL 从公开 gist URL 导入 prompt
+func (p *promptServiceImpl) AddFromURL(gistURL string) (*model.Prompt, error) {
+	// 首先检查该 gist URL 是否已经存在
+	existingPromptByURL, err := p.store.FindExistingPromptByURL(gistURL)
+	if err != nil {
+		return nil, errors.NewAddFromURLError("检查 gist URL 重复", gistURL, err)
+	}
+	
+	if existingPromptByURL != nil {
+		return nil, &errors.ErrPromptAlreadyExists
+	}
+	
+	// 验证 gist 是公开的
+	gistInfo, err := p.store.GetGistInfo(gistURL)
+	if err != nil {
+		return nil, errors.NewAddFromURLError("验证 gist 信息", gistURL, err)
+	}
+	
+	if !gistInfo.IsPublic {
+		return nil, &errors.ErrGistNotPublicFromURL
+	}
+	
+	// 获取 gist 内容
+	gistID := p.extractGistID(gistURL)
+	content, err := p.store.GetContent(gistID)
+	if err != nil {
+		return nil, errors.NewAddFromURLError("获取 gist 内容", gistURL, err)
+	}
+	
+	// 解析 YAML 内容为 Prompt
+	prompt, err := p.parseYAMLContent(content, gistURL)
+	if err != nil {
+		return nil, &errors.ErrInvalidPromptFormatFromURL
+	}
+	
+	// 添加到本地索引
+	err = p.store.Add(*prompt)
+	if err != nil {
+		return nil, errors.NewAddFromURLError("添加到本地索引", gistURL, err)
+	}
+	
+	return prompt, nil
+}
+
+// ValidateGistAccess 验证用户对 gist 的访问权限
+func (p *promptServiceImpl) ValidateGistAccess(gistURL string) (*GistInfo, error) {
+	infraGistInfo, err := p.store.GetGistInfo(gistURL)
+	if err != nil {
+		return nil, err
+	}
+	
+	// 转换 infra.GistInfo 到 service.GistInfo
+	return &GistInfo{
+		ID:          infraGistInfo.ID,
+		URL:         infraGistInfo.URL,
+		IsPublic:    infraGistInfo.IsPublic,
+		HasAccess:   infraGistInfo.HasAccess,
+		Description: infraGistInfo.Description,
+		Owner:       infraGistInfo.Owner,
+	}, nil
+}
+
+// ListPrivatePrompts 列出所有私有 prompts
+func (p *promptServiceImpl) ListPrivatePrompts() ([]model.Prompt, error) {
+	allPrompts, err := p.ListPrompts()
+	if err != nil {
+		return nil, err
+	}
+	
+	var privatePrompts []model.Prompt
+	for _, prompt := range allPrompts {
+		gistInfo, err := p.store.GetGistInfo(prompt.GistURL)
+		if err != nil {
+			continue // 跳过无法访问的 gist
+		}
+		if !gistInfo.IsPublic {
+			privatePrompts = append(privatePrompts, prompt)
+		}
+	}
+	
+	return privatePrompts, nil
+}
+
+// FilterPrivatePrompts 根据关键字筛选私有 prompts
+func (p *promptServiceImpl) FilterPrivatePrompts(keyword string) ([]model.Prompt, error) {
+	allPrivatePrompts, err := p.ListPrivatePrompts()
+	if err != nil {
+		return nil, err
+	}
+	
+	return p.filterPromptsByKeyword(allPrivatePrompts, keyword), nil
+}
+
+// Sync synchronizes the local cache with GitHub by downloading the raw index.json file
+func (p *promptServiceImpl) Sync() error {
+	log.Printf("Starting cache synchronization with GitHub")
+	
+	// Cast store to CachedStore to access SyncRawIndex
+	cachedStore, ok := p.store.(*infra.CachedStore)
+	if !ok {
+		log.Printf("Store is not a CachedStore, skipping raw index sync")
+		return nil // Not an error, just means we're not using cached storage
+	}
+	
+	// Sync raw index.json content from GitHub to local cache
+	if err := cachedStore.SyncRawIndex(); err != nil {
+		log.Printf("Failed to sync raw index: %v", err)
+		return errors.NewAppError(
+			errors.ErrStorage,
+			"failed to sync index with GitHub",
+			err,
+		)
+	}
+	
+	log.Printf("Successfully synchronized cache with GitHub")
+	return nil
+}
+
+// parseYAMLContent 解析 YAML 内容为 Prompt 对象
+func (p *promptServiceImpl) parseYAMLContent(content string, gistURL string) (*model.Prompt, error) {
+	// 使用现有的验证器解析 YAML 内容
+	promptFileContent, err := p.validator.ValidatePromptFile([]byte(content))
+	if err != nil {
+		return nil, err
+	}
+	
+	// 将解析后的内容转换为 Prompt 模型
+	return &model.Prompt{
+		ID:          p.extractGistID(gistURL),
+		Name:        promptFileContent.Metadata.Name,
+		Author:      promptFileContent.Metadata.Author,
+		Description: promptFileContent.Metadata.Description,
+		Tags:        promptFileContent.Metadata.Tags,
+		Version:     promptFileContent.Metadata.Version,
+		GistURL:     gistURL,
+		Content:     content, // 保存原始内容
+	}, nil
+}
+
+// extractGistID 从 URL 中提取 gist ID
+func (p *promptServiceImpl) extractGistID(gistURL string) string {
+	parts := strings.Split(gistURL, "/")
+	return parts[len(parts)-1]
+}
+
+// filterPromptsByKeyword 根据关键字筛选 prompts（复用现有逻辑）
+func (p *promptServiceImpl) filterPromptsByKeyword(prompts []model.Prompt, keyword string) []model.Prompt {
+	if keyword == "" {
+		return prompts
+	}
+	
+	var filtered []model.Prompt
+	lowerKeyword := strings.ToLower(keyword)
+	
+	for _, prompt := range prompts {
+		if strings.Contains(strings.ToLower(prompt.Name), lowerKeyword) ||
+			strings.Contains(strings.ToLower(prompt.Author), lowerKeyword) ||
+			strings.Contains(strings.ToLower(prompt.Description), lowerKeyword) {
+			filtered = append(filtered, prompt)
+		}
+	}
+	
+	return filtered
 }
 
 // extractGistID extracts and validates the Gist ID from a GitHub Gist URL

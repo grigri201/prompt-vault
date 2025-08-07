@@ -9,6 +9,7 @@ import (
 
 	"github.com/grigri/pv/internal/errors"
 	"github.com/grigri/pv/internal/model"
+	"github.com/grigri/pv/internal/service"
 )
 
 func TestGet_LooksLikeURL(t *testing.T) {
@@ -387,6 +388,32 @@ func (m *MockPromptServiceForGet) GetPromptByURL(gistURL string) (*model.Prompt,
 func (m *MockPromptServiceForGet) GetPromptContent(prompt *model.Prompt) (string, error) {
 	m.getPromptContentCalls = append(m.getPromptContentCalls, prompt)
 	return m.getPromptContentResult, m.getPromptContentError
+}
+
+func (m *MockPromptServiceForGet) AddFromURL(gistURL string) (*model.Prompt, error) {
+	return nil, errors.NewAppError(errors.ErrValidation, "not implemented", nil)
+}
+
+func (m *MockPromptServiceForGet) FilterPrivatePrompts(keyword string) ([]model.Prompt, error) {
+	return nil, errors.NewAppError(errors.ErrValidation, "not implemented", nil)
+}
+
+func (m *MockPromptServiceForGet) SharePrompt(prompt *model.Prompt) (*model.Prompt, error) {
+	return nil, errors.NewAppError(errors.ErrValidation, "not implemented", nil)
+}
+
+func (m *MockPromptServiceForGet) ValidateGistAccess(gistURL string) (*service.GistInfo, error) {
+	return &service.GistInfo{}, nil
+}
+
+func (m *MockPromptServiceForGet) ListPrivatePrompts() ([]model.Prompt, error) {
+	return nil, errors.NewAppError(errors.ErrValidation, "not implemented", nil)
+}
+
+// Sync implements the PromptService interface for testing
+func (m *MockPromptServiceForGet) Sync() error {
+	// This method is not used by get command but required by interface
+	return nil
 }
 
 // MockClipboardUtil implements clipboard.Util for testing
