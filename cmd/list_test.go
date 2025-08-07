@@ -10,24 +10,60 @@ import (
 	"github.com/grigri/pv/internal/model"
 )
 
-// MockStoreForList extends the existing MockStore for list-specific testing
+// LocalMockStore is a local mock implementation for list tests
+type LocalMockStore struct {
+	prompts     []model.Prompt
+	listError   error
+	getExportsResult []model.IndexedPrompt
+	getExportsError error
+}
+
+// MockStoreForList extends the LocalMockStore for list-specific testing
 type MockStoreForList struct {
-	*MockStore
+	*LocalMockStore
 	listCalls int
 }
 
 func NewMockStoreForList(prompts []model.Prompt, listError error) *MockStoreForList {
-	mockStore := NewMockStore()
-	mockStore.prompts = prompts
-	mockStore.listError = listError
 	return &MockStoreForList{
-		MockStore: mockStore,
+		LocalMockStore: &LocalMockStore{
+			prompts: prompts,
+			listError: listError,
+			getExportsResult: []model.IndexedPrompt{}, // Default to empty exports
+		},
 	}
 }
 
+func (m *LocalMockStore) List() ([]model.Prompt, error) {
+	if m.listError != nil {
+		return nil, m.listError
+	}
+	return m.prompts, nil
+}
+
+func (m *LocalMockStore) GetExports() ([]model.IndexedPrompt, error) {
+	if m.getExportsError != nil {
+		return nil, m.getExportsError
+	}
+	return m.getExportsResult, nil
+}
+
+// Implement other Store interface methods (stubs for testing)
+func (m *LocalMockStore) Add(prompt model.Prompt) error { return nil }
+func (m *LocalMockStore) Delete(keyword string) error { return nil }
+func (m *LocalMockStore) Update(prompt model.Prompt) error { return nil }
+func (m *LocalMockStore) Get(keyword string) ([]model.Prompt, error) { return nil, nil }
+func (m *LocalMockStore) GetContent(gistID string) (string, error) { return "", nil }
+func (m *LocalMockStore) CreatePublicGist(prompt model.Prompt) (string, error) { return "", nil }
+func (m *LocalMockStore) UpdateGist(gistURL string, prompt model.Prompt) error { return nil }
+func (m *LocalMockStore) GetGistInfo(gistURL string) (*infra.GistInfo, error) { return nil, nil }
+func (m *LocalMockStore) AddExport(prompt model.IndexedPrompt) error { return nil }
+func (m *LocalMockStore) UpdateExport(prompt model.IndexedPrompt) error { return nil }
+func (m *LocalMockStore) FindExistingPromptByURL(gistURL string) (*model.Prompt, error) { return nil, nil }
+
 func (m *MockStoreForList) List() ([]model.Prompt, error) {
 	m.listCalls++
-	return m.MockStore.List()
+	return m.LocalMockStore.List()
 }
 
 // MockCacheManager implements cache management for testing
@@ -158,7 +194,7 @@ func TestListCommand_WithCacheFunctionality(t *testing.T) {
 			},
 			expectedOutput: []string{
 				"Found 1 prompt(s):",
-				"Test Prompt - author: testuser : https://gist.github.com/testuser/123",
+				"Test Prompt - author: testuser : https://gist.github.com/testuser/123 [not exported]",
 				"Cache last updated:", // Cache timestamp will be current time
 			},
 			expectError: false,
@@ -172,7 +208,7 @@ func TestListCommand_WithCacheFunctionality(t *testing.T) {
 			storeError: nil,
 			expectedOutput: []string{
 				"Found 1 prompt(s):",
-				"Remote Prompt - author: remoteuser : https://gist.github.com/remoteuser/456",
+				"Remote Prompt - author: remoteuser : https://gist.github.com/remoteuser/456 [not exported]",
 			},
 			expectError: false,
 		},
@@ -351,10 +387,10 @@ func TestListCommand_BackwardCompatibility(t *testing.T) {
 			(*listCmd).Execute()
 		})
 		
-		// Verify legacy output format is preserved
+		// Verify legacy output format is preserved (with new export info)
 		expected := []string{
 			"Found 1 prompt(s):",
-			"Legacy Prompt - author: legacy : https://gist.github.com/legacy/123",
+			"Legacy Prompt - author: legacy : https://gist.github.com/legacy/123 [not exported]",
 		}
 		
 		for _, exp := range expected {
@@ -387,9 +423,37 @@ func TestListCommand_BackwardCompatibility(t *testing.T) {
 	})
 }
 
+// Test mock store behavior directly
+func TestMockStoreDebug(t *testing.T) {
+	// Test with error
+	mockWithError := NewMockStoreForList(nil, errors.NewAppError(errors.ErrNetwork, "test error", nil))
+	prompts, err := mockWithError.List()
+	
+	if err == nil {
+		t.Errorf("Expected error but got nil")
+	}
+	if prompts != nil {
+		t.Errorf("Expected nil prompts but got %v", prompts)
+	}
+	
+	// Test with prompts
+	testPrompts := []model.Prompt{
+		{ID: "test", Name: "Test", Author: "author"},
+	}
+	mockWithPrompts := NewMockStoreForList(testPrompts, nil)
+	prompts2, err2 := mockWithPrompts.List()
+	
+	if err2 != nil {
+		t.Errorf("Expected no error but got %v", err2)
+	}
+	if len(prompts2) != 1 {
+		t.Errorf("Expected 1 prompt but got %d", len(prompts2))
+	}
+}
+
 // Test command structure and flags
 func TestListCommand_Structure(t *testing.T) {
-	mockStore := &MockStore{}
+	mockStore := &LocalMockStore{}
 	mockConfig := NewMockConfigStore()
 	
 	listCmd := NewListCommand(mockStore, mockConfig)

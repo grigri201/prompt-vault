@@ -10,6 +10,7 @@ import (
 
 	"github.com/grigri/pv/internal/config"
 	"github.com/grigri/pv/internal/infra"
+	"github.com/grigri/pv/internal/model"
 )
 
 type ListCmd *cobra.Command
@@ -18,6 +19,51 @@ type list struct {
 	store       infra.Store
 	configStore config.Store
 	remote      bool
+}
+
+// ExportStatus 保存 prompt 的导出信息
+type ExportStatus struct {
+	IsExported bool
+	ExportURL  string
+	ExportedBy string
+}
+
+// buildExportMap 创建从 GistURL 到 ExportStatus 的查找映射
+func buildExportMap(exports []model.IndexedPrompt) map[string]ExportStatus {
+	exportMap := make(map[string]ExportStatus)
+	for _, export := range exports {
+		if export.Parent != nil && *export.Parent != "" {
+			exportMap[*export.Parent] = ExportStatus{
+				IsExported: true,
+				ExportURL:  export.GistURL,
+				ExportedBy: export.Author,
+			}
+		}
+	}
+	return exportMap
+}
+
+// formatExportInfo 格式化导出状态显示
+func formatExportInfo(status ExportStatus) string {
+	if !status.IsExported {
+		return "[not exported]"
+	}
+	if status.ExportURL == "" {
+		return "[export status unknown]"
+	}
+	return fmt.Sprintf("[✓ exported: %s]", status.ExportURL)
+}
+
+// formatPromptWithExport 创建包含导出信息的增强显示字符串
+func formatPromptWithExport(prompt model.Prompt, exportMap map[string]ExportStatus) string {
+	status := ExportStatus{IsExported: false}
+	if s, exists := exportMap[prompt.GistURL]; exists {
+		status = s
+	}
+	
+	exportInfo := formatExportInfo(status)
+	return fmt.Sprintf("  %s - author: %s : %s %s", 
+		prompt.Name, prompt.Author, prompt.GistURL, exportInfo)
 }
 
 func (lc *list) execute(cmd *cobra.Command, args []string) {
@@ -76,10 +122,21 @@ func (lc *list) execute(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	// 获取导出数据并构建查找映射
+	var exports []model.IndexedPrompt
+	var exportMap map[string]ExportStatus
+
+	if exports, err = store.GetExports(); err == nil {
+		exportMap = buildExportMap(exports)
+	} else {
+		// 优雅降级：继续显示但不包含导出信息
+		exportMap = make(map[string]ExportStatus)
+	}
+
 	fmt.Printf("📝 Found %d prompt(s):\n\n", len(prompts))
 	for i := range prompts {
 		var prompt = prompts[i]
-		fmt.Printf("  %s - author: %s : %s\n ", prompt.Name, prompt.Author, prompt.GistURL)
+		fmt.Printf("%s\n", formatPromptWithExport(prompt, exportMap))
 	}
 
 	// Display cache information when using cached data (requirement 5.5)
