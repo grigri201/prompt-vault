@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Prompt Vault (pv) is a Go CLI application for managing prompts. It uses the Cobra framework for command-line interface and Google Wire for dependency injection.
 
+**Version Requirements:**
+- Go 1.24.5 or later
+- CGO enabled for race detection tests (optional but recommended)
+
 ## Architecture
 
 The codebase follows a clean architecture pattern with clear separation of concerns:
@@ -63,6 +67,11 @@ The Terminal User Interface (TUI) system is built using the bubbletea framework 
 ### Build
 ```bash
 go build -o pv
+
+# 使用 Makefile (推荐)
+make build             # 构建应用程序
+make clean             # 清理构建文件
+make release           # 构建多平台发布版本
 ```
 
 ### Run
@@ -86,7 +95,15 @@ go test ./...
 go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 
-# 运行删除功能专项测试
+# 使用 Makefile 运行测试 (推荐)
+make test              # 基础单元测试 (带竞态检测)
+make test-quick        # 快速测试 (无竞态检测)
+make test-delete       # 删除功能专项测试
+make test-tui          # TUI 相关测试
+make test-integration  # 集成测试
+make test-all          # 完整测试套件 (合并覆盖率报告)
+
+# 手动运行删除功能专项测试
 go test ./cmd -run TestDelete
 go test ./internal/service -run TestPromptService.*Delete
 go test ./internal/tui -run Test
@@ -144,11 +161,48 @@ go test ./internal/tui -run TestIntegration -v
 ### Format Code
 ```bash
 go fmt ./...
+
+# 使用 Makefile (推荐)
+make fmt
 ```
 
 ### Lint
 ```bash
 go vet ./...
+
+# 使用 Makefile 进行完整的代码检查 (包括 golangci-lint)
+make lint
+```
+
+### Development Tools
+```bash
+# 安装开发依赖 (gocovmerge, goimports, golangci-lint)
+make dev-deps
+
+# 项目初始化 (设置开发环境)
+make init
+
+# 安全扫描
+make security
+
+# 性能基准测试
+make bench
+```
+
+### Quick Development Workflow
+```bash
+# 完整的开发环境初始化 (仅需运行一次)
+make init
+
+# 日常开发工作流程
+make fmt lint test-quick        # 快速的代码检查和测试
+make clean build test-all       # 完整的构建和测试流程
+
+# 查看项目信息
+make info
+
+# 查看所有可用命令
+make help
 ```
 
 ## Key Components
