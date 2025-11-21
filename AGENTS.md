@@ -3,12 +3,12 @@
 ## Project Structure & Module Organization
 - `main.go` wires the CLI entrypoint through dependency injection in `internal/di`.
 - `cmd/` contains Cobra command implementations and CLI-facing tests; `internal/` holds services, infra (Gist), TUI, validation, and clipboard helpers.
-- `integration/` houses tagged integration tests; `test_prompts/` stores sample prompt fixtures; `scripts/test-tui.sh` runs the interactive TUI check.
+- `integration/` houses tagged integration tests; `test_prompts/` stores sample prompt fixtures.
 
 ## Build, Test, and Development Commands
 - `make build` (or `go build -o pv .`) produces the `pv` binary; `make run` builds then runs it.
 - `make test` runs unit tests with race detection when `gcc` is available; `make test-quick` skips race and coverage.
-- `make test-integration` runs integration tests (`-tags=integration`, 60s timeout); `make test-all` aggregates unit, delete-focused, TUI, and integration suites and merges coverage.
+- `make test-integration` runs integration tests (`-tags=integration`, 60s timeout); `make test-all` aggregates unit, delete-focused, and integration suites and merges coverage.
 - `make fmt` applies `gofmt`/`goimports`; `make lint` runs `go vet` and `golangci-lint` when installed.
 - `make generate` regenerates Wire DI code; `make release` builds multi-platform artifacts under `build/`; `make clean` prunes build and coverage outputs.
 
@@ -21,7 +21,6 @@
 - Place unit tests adjacent to code (`*_test.go`); mirror command/service scenarios seen in `cmd/*_test.go` and `internal/*`.
 - Use table-driven cases and prefer deterministic fixtures from `test_prompts/`.
 - Integration tests require the `integration` tag and may touch the mocked store; they should remain network-free unless explicitly isolating Gist flows.
-- For TUI regressions, run `scripts/test-tui.sh -c` for a clean start. Capture coverage via `make test` or `make test-all`.
 
 ## Commit & Pull Request Guidelines
 - Commit history favors concise, present-tense summaries (often in Chinese, e.g., “增强 list 命令显示 prompt 导出状态”); keep scope focused per commit.

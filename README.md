@@ -230,7 +230,6 @@ make test-quick
 
 # 特定功能测试
 make test-delete
-make test-tui
 make test-integration
 
 # 完整测试套件（生成合并覆盖率报告）
